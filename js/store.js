@@ -23,6 +23,7 @@
     categoryRail: $("#categoryRail"),
     searchInput: $("#searchInput"),
     resultsCount: $("#resultsCount"),
+    fabWhatsapp: $("#fabWhatsapp"),
     cartToggle: $("#cartToggle"),
     cartCount: $("#cartCount"),
     cartDrawer: $("#cartDrawer"),
@@ -108,11 +109,27 @@
     });
   }
 
+  function cardControlHtml(p, qty, outOfStock) {
+    if (outOfStock) {
+      return `<button class="btn btn--add" data-add="${p.id}" disabled>Sin stock</button>`;
+    }
+    if (qty > 0) {
+      return `
+        <div class="card__qty" data-qty-for="${p.id}">
+          <button class="qty-btn" data-card-decr="${p.id}" aria-label="Restar">−</button>
+          <span class="card__qty-value">${qty}</span>
+          <button class="qty-btn" data-card-incr="${p.id}" aria-label="Sumar" ${p.stock && qty >= Number(p.stock) ? "disabled" : ""}>+</button>
+        </div>`;
+    }
+    return `<button class="btn btn--add" data-add="${p.id}">Agregar</button>`;
+  }
+
   function productCard(p) {
     const outOfStock = Number(p.stock) <= 0;
     const img = p.imagen
       ? `<img src="${escapeHtml(p.imagen)}" alt="${escapeHtml(p.nombre)}" loading="lazy" onerror="this.parentElement.classList.add('img-fallback')">`
       : "";
+    const qty = Cart.getState().find((it) => String(it.id) === String(p.id))?.qty || 0;
 
     return `
       <article class="card ${outOfStock ? "is-out" : ""}" data-id="${p.id}">
@@ -128,11 +145,54 @@
         </div>
         <div class="card__footer">
           <span class="card__price">${money(Number(p.precio) || 0)}</span>
-          <button class="btn btn--add" data-add="${p.id}" ${outOfStock ? "disabled" : ""}>
-            ${outOfStock ? "Sin stock" : "Agregar"}
-          </button>
+          <span class="card__control">${cardControlHtml(p, qty, outOfStock)}</span>
         </div>
       </article>`;
+  }
+
+  function bindCardControl(container) {
+    container.querySelectorAll("[data-add]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const product = allProducts.find((p) => String(p.id) === String(btn.dataset.add));
+        if (!product) return;
+        Cart.add(product, 1);
+        toast(`${product.nombre} agregado al carrito`, "success");
+        pulseCart();
+      });
+    });
+    container.querySelectorAll("[data-card-incr]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const product = allProducts.find((p) => String(p.id) === String(btn.dataset.cardIncr));
+        if (!product) return;
+        const current = Cart.getState().find((it) => String(it.id) === String(product.id))?.qty || 0;
+        Cart.add(product, 1);
+        if (current === 0) pulseCart();
+      });
+    });
+    container.querySelectorAll("[data-card-decr]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.cardDecr;
+        const current = Cart.getState().find((it) => String(it.id) === String(id));
+        if (!current) return;
+        Cart.setQty(id, current.qty - 1);
+      });
+    });
+  }
+
+  // Sincroniza solo el control de cantidad de cada tarjeta visible,
+  // sin re-renderizar toda la grilla (evita parpadeos y pérdida de scroll).
+  function syncCardControls() {
+    el.grid.querySelectorAll(".card[data-id]").forEach((card) => {
+      const id = card.dataset.id;
+      const product = allProducts.find((p) => String(p.id) === String(id));
+      if (!product) return;
+      const outOfStock = Number(product.stock) <= 0;
+      const qty = Cart.getState().find((it) => String(it.id) === String(id))?.qty || 0;
+      const controlSlot = card.querySelector(".card__control");
+      if (!controlSlot) return;
+      controlSlot.innerHTML = cardControlHtml(product, qty, outOfStock);
+      bindCardControl(controlSlot);
+    });
   }
 
   function renderCatalog() {
@@ -156,16 +216,7 @@
     }
 
     el.grid.innerHTML = filtered.map(productCard).join("");
-
-    el.grid.querySelectorAll("[data-add]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const product = allProducts.find((p) => String(p.id) === String(btn.dataset.add));
-        if (!product) return;
-        Cart.add(product, 1);
-        toast(`${product.nombre} agregado al carrito`, "success");
-        pulseCart();
-      });
-    });
+    bindCardControl(el.grid);
   }
 
   function pulseCart() {
@@ -326,8 +377,16 @@
       if (e.key === "Escape") closeCart();
     });
 
-    Cart.onChange(renderCart);
+    Cart.onChange(() => {
+      renderCart();
+      syncCardControls();
+    });
     renderCart();
+
+    if (CONFIG.WHATSAPP_NUMBER) {
+      const text = encodeURIComponent(`Hola ${CONFIG.STORE_NAME}, quería hacerles una consulta.`);
+      el.fabWhatsapp.href = `https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${text}`;
+    }
 
     loadProducts();
     setInterval(() => loadProducts(true), CONFIG.REFRESH_INTERVAL_MS);

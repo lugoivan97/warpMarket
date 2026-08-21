@@ -96,14 +96,9 @@ a { color: inherit; }
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 22px 24px 18px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: start;
-  column-gap: 16px;
   position: relative;
 }
 .brand {
-  grid-column: 1;
   background: none;
   border: none;
   padding: 0;
@@ -125,29 +120,49 @@ a { color: inherit; }
   border-radius: 2px;
 }
 .tagline {
-  grid-column: 1;
   margin: 10px 0 0;
   color: var(--text-muted);
   font-size: 0.92rem;
+  max-width: 520px;
 }
-.cart-toggle {
-  grid-column: 2;
-  grid-row: 1 / 3;
-  align-self: center;
+
+/* ---------- Botones flotantes (carrito + WhatsApp) ---------- */
+.fab-stack {
+  position: fixed;
+  right: 16px;
+  bottom: 20px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.fab {
   position: relative;
-  background: var(--bg-panel);
-  border: 1px solid var(--divider);
-  color: var(--frost);
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: grid;
   place-items: center;
+  border: 1px solid var(--divider);
+  box-shadow: var(--shadow-panel);
   transition: background 0.15s ease, transform 0.15s ease;
+  text-decoration: none;
 }
-.cart-toggle:hover { background: var(--bg-panel-hover); }
-.cart-toggle.pulse { animation: pulse 0.4s ease; }
+.fab:active { transform: scale(0.94); }
+.fab--cart {
+  background: var(--bg-panel);
+  color: var(--frost);
+}
+.fab--cart:hover { background: var(--bg-panel-hover); }
+.fab--cart.pulse { animation: pulse 0.4s ease; }
 @keyframes pulse { 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+.fab--whatsapp {
+  background: #1f8a54;
+  color: #eafff2;
+  border-color: #1f8a54;
+}
+.fab--whatsapp:hover { background: #229c5f; }
 .cart-toggle__count {
   position: absolute;
   top: -4px;
@@ -163,6 +178,7 @@ a { color: inherit; }
   display: grid;
   place-items: center;
   padding: 0 4px;
+  border: 2px solid var(--bg-void);
 }
 
 /* ---------- Toolbar / filtros ---------- */
@@ -325,15 +341,51 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 12px 16px 16px;
+  gap: 8px;
+  padding: 12px 14px 16px;
+  flex-wrap: wrap;
 }
 .card__price {
   font-family: var(--font-mono);
   font-weight: 600;
   font-size: 1rem;
   color: var(--text-primary);
+  flex: 1 1 auto;
+  min-width: 0;
 }
+.card__control { flex: none; }
+.card__control .btn--add { white-space: nowrap; padding: 9px 14px; font-size: 0.84rem; }
+
+/* Stepper de cantidad dentro de la tarjeta (aparece tras agregar) */
+.card__qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--frost-dim);
+  border-radius: 999px;
+  padding: 4px 6px;
+}
+.card__qty-value {
+  min-width: 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.card__qty .qty-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-panel);
+  color: var(--frost);
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.card__qty .qty-btn:hover { background: var(--frost); color: #0b1620; }
+.card__qty .qty-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ---------- Botones ---------- */
 .btn {
@@ -543,4 +595,10 @@ a { color: inherit; }
   .catalog__grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 12px; }
   .card__title { font-size: 0.95rem; }
   .cart-drawer { width: 100%; }
+  .fab-stack {
+    right: 12px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    gap: 10px;
+  }
+  .fab { width: 44px; height: 44px; }
 }
