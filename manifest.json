@@ -1,0 +1,12 @@
+{
+  "name": "Warp Market",
+  "short_name": "Warp Market",
+  "description": "Provisiones congeladas para toda la tripulación.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "icons": [
+    { "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

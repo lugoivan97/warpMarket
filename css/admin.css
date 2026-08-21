@@ -1,0 +1,224 @@
+/* ==========================================================================
+   WARP MARKET — Panel admin (extiende style.css)
+   ========================================================================== */
+
+.admin-body { min-height: 100vh; }
+
+/* ---------- Login ---------- */
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login-card {
+  width: min(360px, 100%);
+  background: var(--bg-panel);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-panel);
+  padding: 32px 28px;
+  text-align: center;
+  box-shadow: var(--shadow-panel);
+}
+.login-card h1 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  margin: 0 0 4px;
+}
+.login-sub { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 22px; }
+.field-label {
+  display: block;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.login-card input {
+  width: 100%;
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--divider);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  margin-bottom: 16px;
+}
+.login-card input:focus { outline: none; border-color: var(--frost-dim); }
+.login-error { color: var(--danger); font-size: 0.85rem; margin: 12px 0 0; }
+.login-back {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--text-faint);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+.login-back:hover { color: var(--frost); }
+
+/* ---------- Layout general ---------- */
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(11, 14, 20, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--divider);
+}
+.admin-header__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.admin-header__inner h1 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  margin: 0;
+}
+.admin-header__inner h1 span { color: var(--text-faint); font-weight: 400; }
+.admin-header__actions { display: flex; gap: 10px; }
+.admin-header__actions a { text-decoration: none; }
+
+.admin-tabs {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 16px 24px 0;
+}
+.admin-tab {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 10px 4px;
+  border-bottom: 2px solid transparent;
+}
+.admin-tab:hover { color: var(--text-primary); }
+.admin-tab.is-active { color: var(--frost); border-bottom-color: var(--frost); }
+
+.admin-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+.admin-panel h2 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  margin: 0 0 16px;
+}
+
+/* ---------- Tabla de productos ---------- */
+.panel-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.panel-toolbar input {
+  flex: 1;
+  background: var(--bg-panel);
+  border: 1px solid var(--divider);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+.table-wrap { overflow-x: auto; border: 1px solid var(--divider); border-radius: var(--radius-sm); }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.admin-table th, .admin-table td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--divider);
+  white-space: nowrap;
+}
+.admin-table th {
+  background: var(--bg-panel);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.admin-table tbody tr:hover { background: var(--bg-panel-hover); }
+.admin-table td.cell-name { white-space: normal; max-width: 260px; font-weight: 600; }
+.stock-low { color: var(--alert); font-weight: 600; }
+.stock-zero { color: var(--danger); font-weight: 600; }
+.row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.row-actions button {
+  background: none;
+  border: 1px solid var(--divider);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+.row-actions button:hover { color: var(--text-primary); border-color: var(--frost-dim); }
+.row-actions .delete-btn:hover { color: var(--danger); border-color: var(--danger); }
+.admin-empty { text-align: center; color: var(--text-muted); padding: 40px 0; }
+
+/* ---------- Formulario de producto ---------- */
+.product-form { max-width: 560px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.field input, .field textarea {
+  width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--divider);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  resize: vertical;
+}
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--frost-dim); }
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.form-msg { margin-top: 14px; font-size: 0.85rem; }
+.form-msg.is-success { color: var(--success); }
+.form-msg.is-error { color: var(--danger); }
+
+/* ---------- Carga masiva ---------- */
+.hint { color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
+.hint code {
+  background: var(--bg-panel-alt);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+}
+.bulk-actions { margin: 14px 0 20px; }
+.dropzone {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  border: 1.5px dashed var(--divider);
+  border-radius: var(--radius-panel);
+  padding: 44px 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dropzone:hover, .dropzone.is-dragover {
+  border-color: var(--frost);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+}
+.bulk-preview { margin-top: 20px; }
+
+@media (max-width: 640px) {
+  .form-row { grid-template-columns: 1fr; }
+  .admin-header__inner { flex-direction: column; align-items: flex-start; gap: 10px; }
+}

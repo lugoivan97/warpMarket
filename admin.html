@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panel — Warp Market</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body class="admin-body">
+
+  <div class="sensor-bar" aria-hidden="true"></div>
+
+  <!-- Pantalla de acceso -->
+  <section class="login-screen" id="loginScreen">
+    <form class="login-card" id="loginForm">
+      <h1>Panel de control</h1>
+      <p class="login-sub">Warp Market — acceso restringido</p>
+      <label class="field-label" for="passwordInput">Contraseña de administrador</label>
+      <input type="password" id="passwordInput" autocomplete="current-password" required />
+      <button class="btn btn--primary btn--block" type="submit" id="loginBtn">Ingresar</button>
+      <p class="login-error is-hidden" id="loginError">Contraseña incorrecta.</p>
+      <a class="login-back" href="index.html">← Volver a la tienda</a>
+    </form>
+  </section>
+
+  <!-- Panel -->
+  <div class="admin-shell is-hidden" id="adminShell">
+    <header class="admin-header">
+      <div class="admin-header__inner">
+        <h1>Warp Market <span>/ panel</span></h1>
+        <div class="admin-header__actions">
+          <a class="btn btn--ghost" href="index.html" target="_blank" rel="noopener">Ver tienda</a>
+          <button class="btn btn--ghost" id="logoutBtn">Salir</button>
+        </div>
+      </div>
+      <nav class="admin-tabs">
+        <button class="admin-tab is-active" data-tab="productos">Productos</button>
+        <button class="admin-tab" data-tab="nuevo">Agregar producto</button>
+        <button class="admin-tab" data-tab="masivo">Carga masiva</button>
+      </nav>
+    </header>
+
+    <main class="admin-main">
+
+      <!-- TAB: listado -->
+      <section class="admin-panel" id="tab-productos" data-tab-panel>
+        <div class="panel-toolbar">
+          <input type="search" id="adminSearch" placeholder="Buscar en el catálogo…" />
+          <button class="btn btn--ghost" id="refreshBtn">Actualizar</button>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table" id="productsTable">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Destacado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="productsTbody"></tbody>
+          </table>
+        </div>
+        <p class="admin-empty is-hidden" id="productsEmpty">Todavía no cargaste productos.</p>
+      </section>
+
+      <!-- TAB: alta individual / edición -->
+      <section class="admin-panel is-hidden" id="tab-nuevo" data-tab-panel>
+        <form class="product-form" id="productForm">
+          <input type="hidden" id="productId" />
+          <h2 id="formTitle">Nuevo producto</h2>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="f-nombre">Nombre *</label>
+              <input id="f-nombre" required />
+            </div>
+            <div class="field">
+              <label for="f-categoria">Categoría *</label>
+              <input id="f-categoria" list="categoriaOptions" required />
+              <datalist id="categoriaOptions"></datalist>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="f-precio">Precio *</label>
+              <input id="f-precio" type="number" min="0" step="1" required />
+            </div>
+            <div class="field">
+              <label for="f-stock">Stock *</label>
+              <input id="f-stock" type="number" min="0" step="1" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="f-imagen">URL de imagen</label>
+            <input id="f-imagen" type="url" placeholder="https://…" />
+          </div>
+
+          <div class="field">
+            <label for="f-descripcion">Descripción</label>
+            <textarea id="f-descripcion" rows="3" maxlength="220"></textarea>
+          </div>
+
+          <label class="checkbox-field">
+            <input type="checkbox" id="f-destacado" />
+            Mostrar como producto destacado
+          </label>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn--ghost" id="cancelEditBtn">Cancelar edición</button>
+            <button type="submit" class="btn btn--primary" id="saveProductBtn">Guardar producto</button>
+          </div>
+          <p class="form-msg is-hidden" id="formMsg"></p>
+        </form>
+      </section>
+
+      <!-- TAB: carga masiva -->
+      <section class="admin-panel is-hidden" id="tab-masivo" data-tab-panel>
+        <h2>Carga masiva por archivo CSV</h2>
+        <p class="hint">
+          El archivo debe tener estas columnas en la primera fila:
+          <code>nombre, categoria, precio, stock, imagen, descripcion, destacado</code>.
+          Las columnas <code>imagen</code>, <code>descripcion</code> y <code>destacado</code> son opcionales.
+        </p>
+        <div class="bulk-actions">
+          <button class="btn btn--ghost" id="downloadTemplateBtn">Descargar plantilla CSV</button>
+        </div>
+
+        <label class="dropzone" id="dropzone" for="fileInput">
+          <span id="dropzoneText">Arrastrá tu archivo CSV acá, o hacé clic para elegirlo</span>
+          <input type="file" id="fileInput" accept=".csv,text/csv" hidden />
+        </label>
+
+        <div class="bulk-preview is-hidden" id="bulkPreview">
+          <p class="hint"><strong id="bulkCount"></strong> productos listos para importar. Revisá antes de confirmar:</p>
+          <div class="table-wrap">
+            <table class="admin-table" id="bulkTable">
+              <thead>
+                <tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th></tr>
+              </thead>
+              <tbody id="bulkTbody"></tbody>
+            </table>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn--ghost" id="cancelBulkBtn">Cancelar</button>
+            <button class="btn btn--primary" id="confirmBulkBtn">Confirmar importación</button>
+          </div>
+        </div>
+        <p class="form-msg is-hidden" id="bulkMsg"></p>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="toast-host" id="toastHost" aria-live="assertive"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
