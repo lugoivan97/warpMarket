@@ -1,220 +1,284 @@
 /* ==========================================================================
-   WARP MARKET — Panel admin (extiende style.css)
+   WARP MARKET — STARFLEET COMMAND PANEL (ADMIN)
    ========================================================================== */
 
-.admin-body { min-height: 100vh; }
+.admin-body {
+  background-color: var(--lcars-black);
+  min-height: 100vh;
+}
 
-/* ---------- Login ---------- */
+/* ---------- Login LCARS Screen ---------- */
 .login-screen {
   min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 24px;
+  background: radial-gradient(circle at center, rgba(51, 153, 204, 0.12) 0%, transparent 70%);
 }
 .login-card {
-  width: min(360px, 100%);
-  background: var(--bg-panel);
-  border: 1px solid var(--divider);
-  border-radius: var(--radius-panel);
-  padding: 32px 28px;
+  width: min(400px, 100%);
+  background: var(--lcars-panel);
+  border: 2px solid var(--lcars-blue);
+  border-left: 8px solid var(--lcars-orange);
+  border-radius: 28px 0 28px 0;
+  padding: 36px 30px;
   text-align: center;
-  box-shadow: var(--shadow-panel);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 153, 0, 0.15);
 }
 .login-card h1 {
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  margin: 0 0 4px;
+  font-size: 1.5rem;
+  color: var(--lcars-yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 6px;
 }
-.login-sub { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 22px; }
+.login-sub {
+  color: var(--lcars-purple);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  margin: 0 0 24px;
+  text-transform: uppercase;
+}
 .field-label {
   display: block;
   text-align: left;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--lcars-ice);
+  margin-bottom: 8px;
+  text-transform: uppercase;
 }
 .login-card input {
   width: 100%;
-  background: var(--bg-panel-alt);
-  border: 1px solid var(--divider);
+  background: var(--lcars-panel-alt);
+  border: 1px solid var(--lcars-border);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  padding: 11px 12px;
-  margin-bottom: 16px;
+  font-family: var(--font-mono);
+  border-radius: 12px 0 12px 0;
+  padding: 12px 14px;
+  margin-bottom: 20px;
 }
-.login-card input:focus { outline: none; border-color: var(--frost-dim); }
-.login-error { color: var(--danger); font-size: 0.85rem; margin: 12px 0 0; }
+.login-card input:focus {
+  outline: none;
+  border-color: var(--lcars-yellow);
+}
+.login-error {
+  color: var(--lcars-red);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  margin: 14px 0 0;
+}
 .login-back {
   display: inline-block;
-  margin-top: 18px;
-  color: var(--text-faint);
-  font-size: 0.82rem;
+  margin-top: 20px;
+  color: var(--lcars-purple);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
   text-decoration: none;
 }
-.login-back:hover { color: var(--frost); }
+.login-back:hover { color: var(--lcars-yellow); }
 
-/* ---------- Layout general ---------- */
+/* ---------- Admin Shell Layout ---------- */
 .admin-header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(11, 14, 20, 0.9);
+  background: rgba(5, 7, 10, 0.94);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 2px solid var(--lcars-orange);
 }
 .admin-header__inner {
-  max-width: 1100px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 18px 24px 0;
+  padding: 20px 24px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 .admin-header__inner h1 {
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  color: var(--lcars-yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   margin: 0;
 }
-.admin-header__inner h1 span { color: var(--text-faint); font-weight: 400; }
+.admin-header__inner h1 span { color: var(--lcars-purple); font-weight: 400; }
 .admin-header__actions { display: flex; gap: 10px; }
 .admin-header__actions a { text-decoration: none; }
 
 .admin-tabs {
-  max-width: 1100px;
+  max-width: 1140px;
   margin: 0 auto;
   display: flex;
-  gap: 6px;
-  padding: 16px 24px 0;
+  gap: 8px;
+  padding: 18px 24px 0;
+  overflow-x: auto;
 }
 .admin-tab {
-  background: none;
-  border: none;
-  color: var(--text-muted);
+  background: var(--lcars-panel);
+  border: 1px solid var(--lcars-border);
+  color: var(--lcars-ice);
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 10px 4px;
-  border-bottom: 2px solid transparent;
+  letter-spacing: 0.05em;
+  padding: 10px 20px;
+  border-radius: 14px 0 0 0;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
-.admin-tab:hover { color: var(--text-primary); }
-.admin-tab.is-active { color: var(--frost); border-bottom-color: var(--frost); }
+.admin-tab:hover { color: var(--lcars-yellow); border-color: var(--lcars-blue); }
+.admin-tab.is-active {
+  background: var(--lcars-orange);
+  color: var(--lcars-black);
+  border-color: var(--lcars-orange);
+  font-weight: 700;
+}
 
 .admin-main {
-  max-width: 1100px;
+  max-width: 1140px;
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 30px 24px 60px;
 }
 .admin-panel h2 {
   font-family: var(--font-display);
-  font-size: 1.15rem;
-  margin: 0 0 16px;
+  color: var(--lcars-yellow);
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  margin: 0 0 18px;
 }
 
-/* ---------- Tabla de productos ---------- */
+/* ---------- Table LCARS Styling ---------- */
 .panel-toolbar {
   display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 .panel-toolbar input {
   flex: 1;
-  background: var(--bg-panel);
-  border: 1px solid var(--divider);
+  background: var(--lcars-panel);
+  border: 1px solid var(--lcars-blue);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
+  font-family: var(--font-mono);
+  border-radius: 16px 0 0 16px;
+  padding: 10px 16px;
+  min-width: 200px;
 }
-.table-wrap { overflow-x: auto; border: 1px solid var(--divider); border-radius: var(--radius-sm); }
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--lcars-border);
+  border-radius: 18px 0 18px 0;
+  background: var(--lcars-panel);
+}
 .admin-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .admin-table th, .admin-table td {
   text-align: left;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--divider);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--lcars-border);
   white-space: nowrap;
 }
 .admin-table th {
-  background: var(--bg-panel);
+  background: var(--lcars-panel-alt);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--lcars-orange);
+  letter-spacing: 0.08em;
 }
-.admin-table tbody tr:hover { background: var(--bg-panel-hover); }
-.admin-table td.cell-name { white-space: normal; max-width: 260px; font-weight: 600; }
-.stock-low { color: var(--alert); font-weight: 600; }
-.stock-zero { color: var(--danger); font-weight: 600; }
+.admin-table tbody tr:hover { background: var(--lcars-panel-hover); }
+.admin-table td.cell-name { white-space: normal; max-width: 260px; font-weight: 600; color: var(--text-primary); }
+.stock-low { color: var(--lcars-yellow); font-weight: 700; font-family: var(--font-mono); }
+.stock-zero { color: var(--lcars-red); font-weight: 700; font-family: var(--font-mono); }
 .row-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .row-actions button {
-  background: none;
-  border: 1px solid var(--divider);
-  color: var(--text-muted);
-  border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 0.78rem;
+  background: var(--lcars-panel-alt);
+  border: 1px solid var(--lcars-border);
+  color: var(--lcars-ice);
+  border-radius: 8px 0 8px 0;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
 }
-.row-actions button:hover { color: var(--text-primary); border-color: var(--frost-dim); }
-.row-actions .delete-btn:hover { color: var(--danger); border-color: var(--danger); }
-.admin-empty { text-align: center; color: var(--text-muted); padding: 40px 0; }
+.row-actions button:hover { color: var(--lcars-yellow); border-color: var(--lcars-blue); }
+.row-actions .delete-btn:hover { color: #ffffff; background: var(--lcars-red); border-color: var(--lcars-red); }
+.admin-empty { text-align: center; color: var(--text-muted); font-family: var(--font-mono); padding: 40px 0; }
 
-/* ---------- Formulario de producto ---------- */
-.product-form { max-width: 560px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.field { margin-bottom: 14px; }
+/* ---------- Forms Sci-Fi ---------- */
+.product-form { max-width: 600px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.field { margin-bottom: 16px; }
 .field label {
   display: block;
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--lcars-ice);
   margin-bottom: 6px;
+  text-transform: uppercase;
 }
 .field input, .field textarea {
   width: 100%;
-  background: var(--bg-panel);
-  border: 1px solid var(--divider);
+  background: var(--lcars-panel);
+  border: 1px solid var(--lcars-border);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  border-radius: 12px 0 12px 0;
+  padding: 10px 14px;
   resize: vertical;
 }
-.field input:focus, .field textarea:focus { outline: none; border-color: var(--frost-dim); }
+.field input:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--lcars-yellow);
+}
 .checkbox-field {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--lcars-ice);
   margin-bottom: 20px;
 }
-.form-actions { display: flex; gap: 10px; justify-content: flex-end; }
-.form-msg { margin-top: 14px; font-size: 0.85rem; }
-.form-msg.is-success { color: var(--success); }
-.form-msg.is-error { color: var(--danger); }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.form-msg { margin-top: 14px; font-family: var(--font-mono); font-size: 0.82rem; }
+.form-msg.is-success { color: var(--lcars-green); }
+.form-msg.is-error { color: var(--lcars-red); }
 
 /* ---------- Carga masiva ---------- */
 .hint { color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
 .hint code {
-  background: var(--bg-panel-alt);
+  background: var(--lcars-panel-alt);
+  border: 1px solid var(--lcars-border);
   padding: 2px 6px;
   border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 0.82em;
+  color: var(--lcars-ice);
 }
+.hint--tight { margin: 6px 0 0; font-size: 0.78rem; }
 .bulk-actions { margin: 14px 0 20px; }
 .dropzone {
   display: grid;
   place-items: center;
   text-align: center;
-  border: 1.5px dashed var(--divider);
-  border-radius: var(--radius-panel);
-  padding: 44px 20px;
-  color: var(--text-muted);
+  border: 2px dashed var(--lcars-blue);
+  background: var(--lcars-panel);
+  border-radius: 20px 0 20px 0;
+  padding: 50px 20px;
+  color: var(--lcars-ice);
+  font-family: var(--font-mono);
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 .dropzone:hover, .dropzone.is-dragover {
-  border-color: var(--frost);
-  background: var(--bg-panel);
-  color: var(--text-primary);
+  border-color: var(--lcars-yellow);
+  background: var(--lcars-panel-hover);
+  color: var(--lcars-yellow);
 }
 .bulk-preview { margin-top: 20px; }
 
@@ -226,53 +290,58 @@
   margin-bottom: 18px;
 }
 .stat-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--divider);
-  border-left: 3px solid var(--frost-dim);
-  border-radius: 4px var(--radius-sm) var(--radius-sm) 4px;
+  background: var(--lcars-panel);
+  border: 1px solid var(--lcars-border);
+  border-left: 3px solid var(--lcars-blue);
+  border-radius: 4px 12px 12px 4px;
   padding: 12px 14px;
 }
 .stat-card__label {
   font-family: var(--font-mono);
   font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  color: var(--lcars-purple);
   margin: 0 0 4px;
 }
 .stat-card__value {
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 700;
+  color: var(--text-primary);
   margin: 0;
 }
-.stat-card--alert .stat-card__value { color: var(--alert); }
-.stat-card--danger .stat-card__value { color: var(--danger); }
-.stat-card--success .stat-card__value { color: var(--success); }
+.stat-card--alert { border-left-color: var(--lcars-yellow); }
+.stat-card--alert .stat-card__value { color: var(--lcars-yellow); }
+.stat-card--danger { border-left-color: var(--lcars-red); }
+.stat-card--danger .stat-card__value { color: var(--lcars-red); }
+.stat-card--success { border-left-color: var(--lcars-green); }
+.stat-card--success .stat-card__value { color: var(--lcars-green); }
 
 /* ---------- Select (filtro de ventas) ---------- */
 select {
-  background: var(--bg-panel);
-  border: 1px solid var(--divider);
+  background: var(--lcars-panel);
+  border: 1px solid var(--lcars-blue);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  font-family: var(--font-mono);
+  border-radius: 12px 0 12px 0;
+  padding: 10px 14px;
 }
 
 /* ---------- Estado de venta (badge) ---------- */
 .estado-badge {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  padding: 4px 9px;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
   border-radius: 999px;
   white-space: nowrap;
 }
-.estado-badge--pendiente { background: rgba(255, 159, 67, 0.15); color: var(--alert); }
-.estado-badge--confirmado { background: rgba(107, 208, 138, 0.15); color: var(--success); }
-.estado-badge--cancelado { background: rgba(255, 107, 107, 0.15); color: var(--danger); }
-
-.hint--tight { margin: 6px 0 0; font-size: 0.78rem; }
+.estado-badge--pendiente { background: rgba(255, 204, 0, 0.15); color: var(--lcars-yellow); }
+.estado-badge--confirmado { background: rgba(51, 204, 153, 0.15); color: var(--lcars-green); }
+.estado-badge--cancelado { background: rgba(204, 51, 51, 0.18); color: var(--lcars-red); }
 
 @media (max-width: 640px) {
   .form-row { grid-template-columns: 1fr; }
