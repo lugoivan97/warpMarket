@@ -313,9 +313,29 @@
 
   function checkout() {
     if (!Cart.getCount()) return;
+    const items = Cart.getState();
+    const total = Cart.getTotal();
     const text = encodeURIComponent(buildWhatsAppMessage());
     const url = `https://wa.me/${CONFIG.WHATSAPP_NUMBER}?text=${text}`;
     window.open(url, "_blank", "noopener");
+
+    // Registro del pedido en la hoja "Ventas" (para el control de ganancias).
+    // No bloquea ni retrasa la apertura de WhatsApp: si falla, el pedido
+    // igual llega al vendedor por WhatsApp, solo no queda en el registro.
+    Api.send(
+      "registrar_pedido",
+      {
+        items: items.map((it) => ({
+          id: it.id,
+          nombre: it.nombre,
+          cantidad: it.qty,
+          precio: it.precio,
+          costo: it.costo || 0,
+        })),
+        total,
+      },
+      null
+    ).catch((err) => console.warn("No se pudo registrar el pedido:", err.message));
   }
 
   // ---------- Acceso oculto al panel admin (3 toques en el nombre) ----------
@@ -364,9 +384,14 @@
     renderSkeleton();
     setupHiddenAdminAccess();
 
+    let searchDebounce;
     el.searchInput.addEventListener("input", (e) => {
-      searchTerm = e.target.value.trim().toLowerCase();
-      renderCatalog();
+      clearTimeout(searchDebounce);
+      const value = e.target.value;
+      searchDebounce = setTimeout(() => {
+        searchTerm = value.trim().toLowerCase();
+        renderCatalog();
+      }, 180);
     });
 
     el.cartToggle.addEventListener("click", openCart);

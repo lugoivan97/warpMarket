@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/admin.css" />
+  <link rel="stylesheet" href="css/style.css?v=2" />
+  <link rel="stylesheet" href="css/admin.css?v=2" />
 </head>
 <body class="admin-body">
 
@@ -43,6 +43,8 @@
         <button class="admin-tab is-active" data-tab="productos">Productos</button>
         <button class="admin-tab" data-tab="nuevo">Agregar producto</button>
         <button class="admin-tab" data-tab="masivo">Carga masiva</button>
+        <button class="admin-tab" data-tab="ventas">Ventas</button>
+        <button class="admin-tab" data-tab="config">Configuración</button>
       </nav>
     </header>
 
@@ -50,6 +52,7 @@
 
       <!-- TAB: listado -->
       <section class="admin-panel" id="tab-productos" data-tab-panel>
+        <div class="stats-row" id="productStats"></div>
         <div class="panel-toolbar">
           <input type="search" id="adminSearch" placeholder="Buscar en el catálogo…" />
           <button class="btn btn--ghost" id="refreshBtn">Actualizar</button>
@@ -60,7 +63,9 @@
               <tr>
                 <th>Producto</th>
                 <th>Categoría</th>
+                <th>Costo</th>
                 <th>Precio</th>
+                <th>Margen</th>
                 <th>Stock</th>
                 <th>Destacado</th>
                 <th></th>
@@ -92,18 +97,25 @@
 
           <div class="form-row">
             <div class="field">
-              <label for="f-precio">Precio *</label>
+              <label for="f-costo">Costo</label>
+              <input id="f-costo" type="number" min="0" step="1" placeholder="Lo que te cuesta a vos" />
+            </div>
+            <div class="field">
+              <label for="f-precio">Precio de venta *</label>
               <input id="f-precio" type="number" min="0" step="1" required />
             </div>
+          </div>
+          <p class="hint hint--tight" id="marginHint"></p>
+
+          <div class="form-row">
             <div class="field">
               <label for="f-stock">Stock *</label>
               <input id="f-stock" type="number" min="0" step="1" required />
             </div>
-          </div>
-
-          <div class="field">
-            <label for="f-imagen">URL de imagen</label>
-            <input id="f-imagen" type="url" placeholder="https://…" />
+            <div class="field">
+              <label for="f-imagen">URL de imagen</label>
+              <input id="f-imagen" type="url" placeholder="https://…" />
+            </div>
           </div>
 
           <div class="field">
@@ -129,8 +141,10 @@
         <h2>Carga masiva por archivo CSV</h2>
         <p class="hint">
           El archivo debe tener estas columnas en la primera fila:
-          <code>nombre, categoria, precio, stock, imagen, descripcion, destacado</code>.
-          Las columnas <code>imagen</code>, <code>descripcion</code> y <code>destacado</code> son opcionales.
+          <code>nombre, categoria, precio, stock, imagen, descripcion, destacado, costo</code>.
+          Solo <code>nombre</code>, <code>categoria</code> y <code>stock</code> son obligatorias — si dejás
+          <code>precio</code> vacío pero cargás <code>costo</code>, el precio se calcula solo con tu margen
+          configurado (pestaña Configuración).
         </p>
         <div class="bulk-actions">
           <button class="btn btn--ghost" id="downloadTemplateBtn">Descargar plantilla CSV</button>
@@ -146,7 +160,7 @@
           <div class="table-wrap">
             <table class="admin-table" id="bulkTable">
               <thead>
-                <tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th></tr>
+                <tr><th>Nombre</th><th>Categoría</th><th>Costo</th><th>Precio</th><th>Stock</th></tr>
               </thead>
               <tbody id="bulkTbody"></tbody>
             </table>
@@ -159,13 +173,79 @@
         <p class="form-msg is-hidden" id="bulkMsg"></p>
       </section>
 
+      <!-- TAB: ventas -->
+      <section class="admin-panel is-hidden" id="tab-ventas" data-tab-panel>
+        <h2>Control de ventas y reparto</h2>
+        <p class="hint">
+          Cada vez que un cliente confirma un pedido por WhatsApp, queda registrado acá como
+          <strong>Pendiente</strong>. Marcalo como <strong>Confirmado</strong> cuando la venta se concrete
+          de verdad (o <strong>Cancelado</strong> si no), para que los totales de ganancia y reparto sean
+          exactos — solo se suman las ventas confirmadas.
+        </p>
+
+        <div class="stats-row" id="ventasStats"></div>
+
+        <div class="panel-toolbar">
+          <select id="ventasFiltro">
+            <option value="Todos">Todos los estados</option>
+            <option value="Pendiente">Pendientes</option>
+            <option value="Confirmado">Confirmados</option>
+            <option value="Cancelado">Cancelados</option>
+          </select>
+          <button class="btn btn--ghost" id="refreshVentasBtn">Actualizar</button>
+          <button class="btn btn--ghost" id="exportVentasBtn">Exportar CSV</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="admin-table" id="ventasTable">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Pedido</th>
+                <th>Total</th>
+                <th>Ganancia</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ventasTbody"></tbody>
+          </table>
+        </div>
+        <p class="admin-empty is-hidden" id="ventasEmpty">Todavía no hay pedidos registrados.</p>
+      </section>
+
+      <!-- TAB: configuración -->
+      <section class="admin-panel is-hidden" id="tab-config" data-tab-panel>
+        <h2>Configuración de precios y reparto</h2>
+        <form class="product-form" id="configForm">
+          <div class="field">
+            <label for="c-margen">Margen de ganancia sugerido (%)</label>
+            <input id="c-margen" type="number" min="0" step="1" required />
+            <p class="hint hint--tight">
+              Al cargar un producto por costo, el precio de venta se sugiere automáticamente con este
+              margen, redondeado hacia arriba al siguiente múltiplo de 100 (ej: si da $8.640, sugiere
+              $8.700). Siempre podés modificarlo a mano en cada producto.
+            </p>
+          </div>
+          <div class="field">
+            <label for="c-split">Tu porcentaje del reparto de ganancias (%)</label>
+            <input id="c-split" type="number" min="0" max="100" step="1" required />
+            <p class="hint hint--tight" id="splitHint"></p>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="saveConfigBtn">Guardar configuración</button>
+          </div>
+          <p class="form-msg is-hidden" id="configMsg"></p>
+        </form>
+      </section>
+
     </main>
   </div>
 
   <div class="toast-host" id="toastHost" aria-live="assertive"></div>
 
-  <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/config.js?v=2"></script>
+  <script src="js/api.js?v=2"></script>
+  <script src="js/admin.js?v=2"></script>
 </body>
 </html>

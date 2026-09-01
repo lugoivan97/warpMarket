@@ -128,15 +128,118 @@ manifest.json / assets/favicon.svg → íconos y "instalar como app"
   archivo a ningún lado más que a tu propia base de datos), lo valida,
   te muestra una vista previa, y recién al confirmar lo manda a la Sheet.
 
+## Novedades de esta versión
+
+- **Costo y margen automático**: en el panel, al cargar el *costo* de un
+  producto, el *precio de venta* se sugiere solo (costo + margen configurado,
+  redondeado hacia arriba al múltiplo de 100 más cercano). Siempre podés
+  pisar el precio sugerido a mano.
+- **Margen y reparto configurables**: pestaña **Configuración** del panel —
+  cambiás el % de margen y el % que te corresponde a vos del reparto con tu
+  socio, sin tocar código.
+- **Registro de ventas**: cada pedido confirmado por WhatsApp queda anotado
+  automáticamente en una hoja nueva "Ventas" como *Pendiente*. Vos lo marcás
+  como *Confirmado* (o *Cancelado*) desde la pestaña **Ventas** del panel, y
+  ahí ves los totales de venta, ganancia, y cuánto le corresponde a cada
+  socio — con exportación a CSV.
+- **Panel con más contexto**: la pestaña Productos ahora muestra tarjetas con
+  total de productos, productos sin stock y valor de inventario a costo; la
+  tabla suma columnas de costo y margen.
+- **Corrección**: el contador de cantidad ya no puede aparecer en el botón de
+  WhatsApp bajo ninguna circunstancia (quedó blindado por CSS e ID único), y
+  se agregó un stepper de cantidad directamente en cada tarjeta de producto.
+- **Cache-busting**: los archivos CSS/JS ahora se cargan con `?v=2`. Si en el
+  futuro actualizás estilos o scripts y el navegador sigue mostrando la
+  versión vieja, subí ese número (`?v=3`, `?v=4`...) en `index.html` y
+  `admin.html`.
+
+## Cómo funciona el registro de ventas (importante)
+
+El sitio es 100% estático: no hay forma de saber si el cliente terminó
+pagando o no, porque el pedido se cierra por WhatsApp fuera del sitio. Por
+eso cada pedido se guarda como **Pendiente** apenas el cliente toca "Pedir
+por WhatsApp" — es un registro de *intención de compra*, no de venta
+confirmada. Los totales de ganancia y reparto solo se calculan sobre las
+ventas que vos marcás manualmente como **Confirmado** en el panel, así que
+conviene revisar la pestaña Ventas todos los días y actualizar los estados.
+
+## Seguridad — qué se revisó
+
+- La contraseña de administrador nunca viaja ni se guarda en el código: vive
+  solo en las Propiedades del script de Apps Script, y las acciones de
+  escritura (crear, editar, eliminar, carga masiva, ventas, configuración)
+  siempre la validan en el servidor.
+- `js/config.js` (con la URL del backend) es público porque el sitio es
+  estático — esto es normal y esperado; lo que protege tus datos es que las
+  escrituras requieren contraseña, no que la URL esté oculta.
+- El registro de pedidos (`registrar_pedido`) es una acción pública a
+  propósito, porque la usa cualquier cliente al comprar. Tiene validaciones
+  básicas (cantidad de ítems, precios no negativos) pero **no** tiene límite
+  de frecuencia — Apps Script no ofrece eso nativamente. Si en algún momento
+  ves filas basura en "Ventas", es spam automatizado; se puede sumar
+  reCAPTCHA más adelante si se vuelve un problema real.
+- Cambiá la contraseña de tanto en tanto (Apps Script → Configuración del
+  proyecto → Propiedades del script) y no la compartas por chat ni la subas
+  al repositorio.
+
+## Rendimiento — qué se revisó
+
+- El catálogo se cachea 2 minutos en el navegador del cliente
+  (`sessionStorage`), así que navegar entre categorías o volver a la tienda
+  no vuelve a pedir datos a Google innecesariamente.
+- El buscador (tienda y panel) tiene *debounce*: espera a que la persona
+  termine de tipear antes de filtrar, en vez de recalcular en cada tecla.
+- Las imágenes usan `loading="lazy"`: no descargan hasta que están por
+  entrar en pantalla.
+- Con catálogos grandes (varios cientos de productos), Google Sheets puede
+  empezar a notarse más lento que una base de datos real — si en algún
+  momento llegás a esa escala, avisame y evaluamos migrar a algo como
+  Firebase sin tocar el diseño de la tienda.
+
+## Publicar en tu dominio de Hostinger desde Git
+
+Hostinger ofrece un integrador de Git en el hPanel (disponible en la mayoría
+de los planes de hosting web). Así es como se conecta:
+
+1. Entrá a **hPanel** → elegí tu sitio/dominio → buscá **Avanzado → Git**
+   (en algunos planes puede estar bajo "Archivos" o llamarse "Git
+   deployment" — el nombre exacto varía un poco según el plan).
+2. Pegá la URL de tu repositorio: `https://github.com/lugoivan97/warpMarket.git`
+3. Rama: `main`.
+4. **Directorio de instalación**: apuntalo a `public_html` (o a la subcarpeta
+   correspondiente si tu dominio no es el principal de la cuenta). Esto es
+   importante: como es un sitio estático, los archivos tienen que quedar
+   directamente en la raíz que Hostinger sirve al público, no en una
+   subcarpeta con el nombre del repo.
+5. Guardá/Desplegá. Hostinger clona el repo y publica el contenido.
+6. Cada vez que hagas `git push` a `main` desde tu computadora, entrá al
+   mismo panel y usá el botón "Actualizar"/"Deploy" (Hostinger no siempre
+   re-despliega solo con cada push; en algunos planes sí, con webhook
+   automático — fijate si aparece esa opción al conectar el repo).
+
+**Si tu plan no tiene la opción de Git** (pasa en algunos planes de hosting
+compartido básico), la alternativa es simple: descargás el ZIP del repo
+desde GitHub (Code → Download ZIP), lo descomprimís, y subís el *contenido*
+de la carpeta (no la carpeta en sí) a `public_html` por el Administrador de
+archivos de Hostinger o por FTP. Es más manual, pero el resultado final es
+idéntico.
+
+Una vez publicado: entrá a tu dominio, probá que cargue el catálogo, y
+repetí la prueba de punta a punta (agregar al carrito → WhatsApp → mensaje
+correcto) antes de anunciarlo a tus clientes.
+
 ## Checklist antes de "abrir al público"
 
 - [ ] `API_URL` en `js/config.js` apunta a tu Web App (`.../exec`)
 - [ ] `WHATSAPP_NUMBER` es el número correcto, sin espacios ni "+"
 - [ ] `ADMIN_PASSWORD` configurada en Apps Script y probada en el panel
-- [ ] Cargaste al menos algunos productos con imagen, precio y stock
+- [ ] Margen y reparto configurados en la pestaña Configuración del panel
+- [ ] Cargaste al menos algunos productos con costo, precio, imagen y stock
 - [ ] Probaste un pedido completo de punta a punta (agregar al carrito →
-      WhatsApp → mensaje llega correcto con el total)
+      WhatsApp → mensaje llega correcto con el total → aparece en la
+      pestaña Ventas como Pendiente)
 - [ ] Probaste el acceso oculto al panel desde el celular real (3 toques)
+- [ ] El dominio de Hostinger carga la tienda correctamente
 
 ## Notas de seguridad
 

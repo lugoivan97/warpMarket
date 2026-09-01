@@ -7,7 +7,10 @@
 
   const TOKEN_KEY = "wm_admin_token";
   let products = [];
+  let ventas = [];
   let bulkRows = [];
+  let adminConfig = { margen: 50, splitPropio: 50 };
+  let precioEditadoManualmente = false;
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
@@ -23,6 +26,7 @@
     tabs: $$(".admin-tab"),
     panels: $$("[data-tab-panel]"),
 
+    productStats: $("#productStats"),
     adminSearch: $("#adminSearch"),
     refreshBtn: $("#refreshBtn"),
     productsTbody: $("#productsTbody"),
@@ -34,7 +38,9 @@
     fNombre: $("#f-nombre"),
     fCategoria: $("#f-categoria"),
     categoriaOptions: $("#categoriaOptions"),
+    fCosto: $("#f-costo"),
     fPrecio: $("#f-precio"),
+    marginHint: $("#marginHint"),
     fStock: $("#f-stock"),
     fImagen: $("#f-imagen"),
     fDescripcion: $("#f-descripcion"),
@@ -53,11 +59,28 @@
     confirmBulkBtn: $("#confirmBulkBtn"),
     bulkMsg: $("#bulkMsg"),
 
+    ventasStats: $("#ventasStats"),
+    ventasFiltro: $("#ventasFiltro"),
+    refreshVentasBtn: $("#refreshVentasBtn"),
+    exportVentasBtn: $("#exportVentasBtn"),
+    ventasTbody: $("#ventasTbody"),
+    ventasEmpty: $("#ventasEmpty"),
+
+    configForm: $("#configForm"),
+    cMargen: $("#c-margen"),
+    cSplit: $("#c-split"),
+    splitHint: $("#splitHint"),
+    saveConfigBtn: $("#saveConfigBtn"),
+    configMsg: $("#configMsg"),
+
     toastHost: $("#toastHost"),
   };
 
   const money = (n) =>
     new Intl.NumberFormat(CONFIG.LOCALE, { style: "currency", currency: CONFIG.CURRENCY, maximumFractionDigits: 0 }).format(n);
+
+  const roundUpTo100 = (n) => Math.ceil((Number(n) || 0) / 100) * 100;
+  const suggestedPrice = (costo) => roundUpTo100(Number(costo) * (1 + adminConfig.margen / 100));
 
   function toast(msg, type = "info") {
     const node = document.createElement("div");
@@ -98,9 +121,10 @@
     }
   }
 
-  function enterPanel() {
+  async function enterPanel() {
     el.loginScreen.classList.add("is-hidden");
     el.adminShell.classList.remove("is-hidden");
+    await loadConfig();
     loadProducts();
   }
 
@@ -117,8 +141,44 @@
         tab.classList.add("is-active");
         el.panels.forEach((p) => p.classList.add("is-hidden"));
         $(`#tab-${tab.dataset.tab}`).classList.remove("is-hidden");
+        if (tab.dataset.tab === "ventas" && !ventas.length) loadVentas();
       });
     });
+  }
+
+  // ---------- Configuración (margen / reparto) ----------
+  async function loadConfig() {
+    try {
+      adminConfig = await Api.send("config_obtener", {}, getToken());
+      el.cMargen.value = adminConfig.margen;
+      el.cSplit.value = adminConfig.splitPropio;
+      updateSplitHint();
+    } catch (err) {
+      toast(`No se pudo cargar la configuración: ${err.message}`, "error");
+    }
+  }
+
+  function updateSplitHint() {
+    const propio = Number(el.cSplit.value) || 0;
+    el.splitHint.textContent = `Con este valor: vos te quedás con ${propio}% de la ganancia y tu socio con ${100 - propio}%.`;
+  }
+
+  async function handleConfigSubmit(e) {
+    e.preventDefault();
+    el.saveConfigBtn.disabled = true;
+    try {
+      adminConfig = await Api.send(
+        "config_actualizar",
+        { margen: Number(el.cMargen.value), splitPropio: Number(el.cSplit.value) },
+        getToken()
+      );
+      showMsg(el.configMsg, "Configuración guardada.", "success");
+      renderTable(); // recalcula la columna "Margen" con el nuevo valor
+    } catch (err) {
+      showMsg(el.configMsg, err.message, "error");
+    } finally {
+      el.saveConfigBtn.disabled = false;
+    }
   }
 
   // ---------- Listado de productos ----------
@@ -126,10 +186,29 @@
     try {
       products = await Api.getProducts(true);
       populateCategoryOptions();
+      renderStats();
       renderTable();
     } catch (err) {
       toast(err.message, "error");
     }
+  }
+
+  function renderStats() {
+    const sinStock = products.filter((p) => Number(p.stock) <= 0).length;
+    const valorInventarioCosto = products.reduce((sum, p) => sum + (Number(p.costo) || 0) * (Number(p.stock) || 0), 0);
+    el.productStats.innerHTML = `
+      <div class="stat-card">
+        <p class="stat-card__label">Productos</p>
+        <p class="stat-card__value">${products.length}</p>
+      </div>
+      <div class="stat-card ${sinStock ? "stat-card--danger" : ""}">
+        <p class="stat-card__label">Sin stock</p>
+        <p class="stat-card__value">${sinStock}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card__label">Valor de inventario (costo)</p>
+        <p class="stat-card__value">${money(valorInventarioCosto)}</p>
+      </div>`;
   }
 
   function populateCategoryOptions() {
@@ -146,12 +225,17 @@
     el.productsTbody.innerHTML = filtered
       .map((p) => {
         const stock = Number(p.stock) || 0;
+        const costo = Number(p.costo) || 0;
+        const precio = Number(p.precio) || 0;
         const stockClass = stock === 0 ? "stock-zero" : stock <= 5 ? "stock-low" : "";
+        const margen = costo > 0 ? `${(((precio - costo) / costo) * 100).toFixed(0)}%` : "—";
         return `
         <tr data-id="${p.id}">
           <td class="cell-name">${p.nombre}</td>
           <td>${p.categoria || "—"}</td>
-          <td>${money(Number(p.precio) || 0)}</td>
+          <td>${costo > 0 ? money(costo) : "—"}</td>
+          <td>${money(precio)}</td>
+          <td>${margen}</td>
           <td class="${stockClass}">${stock}</td>
           <td>${p.destacado ? "Sí" : "—"}</td>
           <td>
@@ -173,18 +257,30 @@
   }
 
   // ---------- Alta / edición ----------
+  function updateMarginHint() {
+    const costo = Number(el.fCosto.value) || 0;
+    if (costo > 0) {
+      el.marginHint.textContent = `Con costo ${money(costo)} y margen del ${adminConfig.margen}%, el precio sugerido es ${money(suggestedPrice(costo))}.`;
+    } else {
+      el.marginHint.textContent = "Cargá el costo y el precio se sugiere solo (siempre lo podés cambiar a mano).";
+    }
+  }
+
   function startEdit(id) {
     const p = products.find((x) => String(x.id) === String(id));
     if (!p) return;
+    precioEditadoManualmente = true; // no pisar el precio ya guardado al abrir para editar
     el.productId.value = p.id;
     el.fNombre.value = p.nombre || "";
     el.fCategoria.value = p.categoria || "";
+    el.fCosto.value = p.costo || "";
     el.fPrecio.value = p.precio || "";
     el.fStock.value = p.stock || 0;
     el.fImagen.value = p.imagen || "";
     el.fDescripcion.value = p.descripcion || "";
     el.fDestacado.checked = !!p.destacado;
     el.formTitle.textContent = `Editando: ${p.nombre}`;
+    updateMarginHint();
     document.querySelector('[data-tab="nuevo"]').click();
   }
 
@@ -192,6 +288,8 @@
     el.productForm.reset();
     el.productId.value = "";
     el.formTitle.textContent = "Nuevo producto";
+    precioEditadoManualmente = false;
+    updateMarginHint();
   }
 
   async function handleProductSubmit(e) {
@@ -200,6 +298,7 @@
       id: el.productId.value || undefined,
       nombre: el.fNombre.value.trim(),
       categoria: el.fCategoria.value.trim(),
+      costo: Number(el.fCosto.value) || 0,
       precio: Number(el.fPrecio.value),
       stock: Number(el.fStock.value),
       imagen: el.fImagen.value.trim(),
@@ -212,21 +311,21 @@
     try {
       const action = payload.id ? "editar" : "crear";
       await Api.send(action, payload, getToken());
-      showFormMsg("Producto guardado correctamente.", "success");
+      showMsg(el.formMsg, "Producto guardado correctamente.", "success");
       resetForm();
       loadProducts();
     } catch (err) {
-      showFormMsg(err.message, "error");
+      showMsg(el.formMsg, err.message, "error");
     } finally {
       el.saveProductBtn.disabled = false;
       el.saveProductBtn.textContent = "Guardar producto";
     }
   }
 
-  function showFormMsg(msg, type) {
-    el.formMsg.textContent = msg;
-    el.formMsg.className = `form-msg is-${type}`;
-    setTimeout(() => el.formMsg.classList.add("is-hidden"), 4000);
+  function showMsg(node, msg, type) {
+    node.textContent = msg;
+    node.className = `form-msg is-${type}`;
+    setTimeout(() => node.classList.add("is-hidden"), 4000);
   }
 
   async function deleteProduct(id) {
@@ -243,8 +342,8 @@
   }
 
   // ---------- Carga masiva (CSV) ----------
-  const REQUIRED_HEADERS = ["nombre", "categoria", "precio", "stock"];
-  const OPTIONAL_HEADERS = ["imagen", "descripcion", "destacado"];
+  const REQUIRED_HEADERS = ["nombre", "categoria", "stock"];
+  const OPTIONAL_HEADERS = ["precio", "imagen", "descripcion", "destacado", "costo"];
 
   function parseCsv(text) {
     // Parser CSV simple con soporte de comillas y comas dentro de campos citados.
@@ -287,10 +386,15 @@
       const obj = {};
       headers.forEach((h, i) => (obj[h] = (r[i] ?? "").trim()));
       if (!obj.nombre) throw new Error(`Fila ${idx + 2}: falta el nombre.`);
+
+      const costo = Number(obj.costo) || 0;
+      const precio = obj.precio ? Number(obj.precio) || 0 : costo > 0 ? suggestedPrice(costo) : 0;
+
       return {
         nombre: obj.nombre,
         categoria: obj.categoria || "Sin categoría",
-        precio: Number(obj.precio) || 0,
+        costo,
+        precio,
         stock: Number(obj.stock) || 0,
         imagen: obj.imagen || "",
         descripcion: obj.descripcion || "",
@@ -308,7 +412,8 @@
         bulkRows = rowsToProducts(rows);
         renderBulkPreview();
       } catch (err) {
-        showBulkMsg(err.message, "error");
+        showMsg(el.bulkMsg, err.message, "error");
+        el.bulkMsg.classList.remove("is-hidden");
       }
     };
     reader.readAsText(file, "UTF-8");
@@ -318,15 +423,9 @@
     el.bulkCount.textContent = bulkRows.length;
     el.bulkTbody.innerHTML = bulkRows
       .slice(0, 50)
-      .map((p) => `<tr><td>${p.nombre}</td><td>${p.categoria}</td><td>${money(p.precio)}</td><td>${p.stock}</td></tr>`)
+      .map((p) => `<tr><td>${p.nombre}</td><td>${p.categoria}</td><td>${p.costo ? money(p.costo) : "—"}</td><td>${money(p.precio)}</td><td>${p.stock}</td></tr>`)
       .join("");
     el.bulkPreview.classList.remove("is-hidden");
-  }
-
-  function showBulkMsg(msg, type) {
-    el.bulkMsg.textContent = msg;
-    el.bulkMsg.className = `form-msg is-${type}`;
-    el.bulkMsg.classList.remove("is-hidden");
   }
 
   async function confirmBulkImport() {
@@ -334,14 +433,16 @@
     el.confirmBulkBtn.textContent = "Importando…";
     try {
       const result = await Api.send("carga_masiva", { rows: bulkRows }, getToken());
-      showBulkMsg(`Se importaron ${result?.count ?? bulkRows.length} productos correctamente.`, "success");
+      showMsg(el.bulkMsg, `Se importaron ${result?.count ?? bulkRows.length} productos correctamente.`, "success");
+      el.bulkMsg.classList.remove("is-hidden");
       toast("Carga masiva completada.", "success");
       bulkRows = [];
       el.bulkPreview.classList.add("is-hidden");
       el.fileInput.value = "";
       loadProducts();
     } catch (err) {
-      showBulkMsg(err.message, "error");
+      showMsg(el.bulkMsg, err.message, "error");
+      el.bulkMsg.classList.remove("is-hidden");
     } finally {
       el.confirmBulkBtn.disabled = false;
       el.confirmBulkBtn.textContent = "Confirmar importación";
@@ -349,13 +450,126 @@
   }
 
   function downloadTemplate() {
-    const header = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS].join(",");
-    const example = "Milanesas de soja x4,Platos Listos,3200,25,https://ejemplo.com/img.jpg,Listas para freír,true";
+    const header = ["nombre", "categoria", "stock", "precio", "costo", "imagen", "descripcion", "destacado"].join(",");
+    const example = "Milanesas de soja x4,Platos Listos,25,,2200,https://ejemplo.com/img.jpg,Listas para freír,true";
     const blob = new Blob([`${header}\n${example}\n`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "plantilla_warp_market.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- Ventas ----------
+  async function loadVentas() {
+    el.ventasTbody.innerHTML = `<tr><td colspan="6">Cargando…</td></tr>`;
+    try {
+      ventas = await Api.send("ventas_listar", {}, getToken());
+      renderVentasStats();
+      renderVentasTable();
+    } catch (err) {
+      toast(err.message, "error");
+      el.ventasTbody.innerHTML = "";
+    }
+  }
+
+  function renderVentasStats() {
+    const confirmadas = ventas.filter((v) => v.estado === "Confirmado");
+    const total = confirmadas.reduce((s, v) => s + v.total, 0);
+    const ganancia = confirmadas.reduce((s, v) => s + v.gananciatotal, 0);
+    const propio = ganancia * (adminConfig.splitPropio / 100);
+    const socio = ganancia - propio;
+    const pendientes = ventas.filter((v) => v.estado === "Pendiente").length;
+
+    el.ventasStats.innerHTML = `
+      <div class="stat-card ${pendientes ? "stat-card--alert" : ""}">
+        <p class="stat-card__label">Pedidos pendientes</p>
+        <p class="stat-card__value">${pendientes}</p>
+      </div>
+      <div class="stat-card stat-card--success">
+        <p class="stat-card__label">Vendido (confirmado)</p>
+        <p class="stat-card__value">${money(total)}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card__label">Ganancia total</p>
+        <p class="stat-card__value">${money(ganancia)}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card__label">Tu parte (${adminConfig.splitPropio}%)</p>
+        <p class="stat-card__value">${money(propio)}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card__label">Parte del socio (${100 - adminConfig.splitPropio}%)</p>
+        <p class="stat-card__value">${money(socio)}</p>
+      </div>`;
+  }
+
+  function renderVentasTable() {
+    const filtro = el.ventasFiltro.value;
+    const filtered = filtro === "Todos" ? ventas : ventas.filter((v) => v.estado === filtro);
+    el.ventasEmpty.classList.toggle("is-hidden", filtered.length > 0);
+
+    el.ventasTbody.innerHTML = filtered
+      .map((v) => {
+        const fecha = v.fecha ? new Date(v.fecha).toLocaleString(CONFIG.LOCALE, { dateStyle: "short", timeStyle: "short" }) : "—";
+        const badgeClass = `estado-badge--${(v.estado || "pendiente").toLowerCase()}`;
+        return `
+        <tr data-id="${v.id}">
+          <td>${fecha}</td>
+          <td class="cell-name">${v.items || "—"}</td>
+          <td>${money(v.total)}</td>
+          <td>${money(v.gananciatotal)}</td>
+          <td><span class="estado-badge ${badgeClass}">${v.estado}</span></td>
+          <td>
+            <div class="row-actions">
+              ${v.estado !== "Confirmado" ? `<button data-estado="Confirmado" data-id-venta="${v.id}">Confirmar</button>` : ""}
+              ${v.estado !== "Cancelado" ? `<button class="delete-btn" data-estado="Cancelado" data-id-venta="${v.id}">Cancelar</button>` : ""}
+              ${v.estado !== "Pendiente" ? `<button data-estado="Pendiente" data-id-venta="${v.id}">Reabrir</button>` : ""}
+            </div>
+          </td>
+        </tr>`;
+      })
+      .join("");
+
+    el.ventasTbody.querySelectorAll("[data-estado]").forEach((b) =>
+      b.addEventListener("click", () => updateVentaEstado(b.dataset.idVenta, b.dataset.estado))
+    );
+  }
+
+  async function updateVentaEstado(id, estado) {
+    try {
+      await Api.send("ventas_actualizar_estado", { id, estado }, getToken());
+      const venta = ventas.find((v) => String(v.id) === String(id));
+      if (venta) venta.estado = estado;
+      renderVentasStats();
+      renderVentasTable();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  function exportVentasCsv() {
+    if (!ventas.length) {
+      toast("No hay ventas para exportar.", "error");
+      return;
+    }
+    const header = ["fecha", "items", "total", "costoTotal", "gananciaTotal", "estado"].join(",");
+    const rows = ventas.map((v) =>
+      [
+        v.fecha ? new Date(v.fecha).toLocaleString(CONFIG.LOCALE) : "",
+        `"${(v.items || "").replace(/"/g, '""')}"`,
+        v.total,
+        v.costototal,
+        v.gananciatotal,
+        v.estado,
+      ].join(",")
+    );
+    const blob = new Blob([`${header}\n${rows.join("\n")}\n`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ventas_warp_market_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -366,8 +580,23 @@
     el.logoutBtn.addEventListener("click", logout);
     setupTabs();
 
-    el.adminSearch.addEventListener("input", renderTable);
+    let searchDebounce;
+    el.adminSearch.addEventListener("input", () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(renderTable, 150);
+    });
     el.refreshBtn.addEventListener("click", loadProducts);
+
+    el.fCosto.addEventListener("input", () => {
+      if (!precioEditadoManualmente) {
+        const costo = Number(el.fCosto.value) || 0;
+        if (costo > 0) el.fPrecio.value = suggestedPrice(costo);
+      }
+      updateMarginHint();
+    });
+    el.fPrecio.addEventListener("input", () => {
+      precioEditadoManualmente = true;
+    });
 
     el.productForm.addEventListener("submit", handleProductSubmit);
     el.cancelEditBtn.addEventListener("click", resetForm);
@@ -388,6 +617,13 @@
       el.fileInput.value = "";
     });
     el.confirmBulkBtn.addEventListener("click", confirmBulkImport);
+
+    el.ventasFiltro.addEventListener("change", renderVentasTable);
+    el.refreshVentasBtn.addEventListener("click", loadVentas);
+    el.exportVentasBtn.addEventListener("click", exportVentasCsv);
+
+    el.configForm.addEventListener("submit", handleConfigSubmit);
+    el.cSplit.addEventListener("input", updateSplitHint);
 
     // Si ya había una sesión activa (misma pestaña), entra directo.
     if (getToken()) enterPanel();

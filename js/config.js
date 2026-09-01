@@ -19,7 +19,7 @@ const CONFIG = {
 
   // URL del Google Apps Script publicado como "Web App" (ver README.md).
   // Se ve así: https://script.google.com/macros/s/AKfycb.../exec
-  API_URL: "https://script.google.com/macros/s/AKfycbyQKuRLztifJ1xZakQlhvE7xdtAOqze8h5F-v1KRobMEoshq66TdTg07h2MsIOQdCQ56w/exec",
+  API_URL: "PEGA_AQUI_LA_URL_DE_TU_APPS_SCRIPT",
 
   // Moneda usada para formatear precios
   CURRENCY: "ARS",
