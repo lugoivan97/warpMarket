@@ -128,7 +128,46 @@ manifest.json / assets/favicon.svg → íconos y "instalar como app"
   archivo a ningún lado más que a tu propia base de datos), lo valida,
   te muestra una vista previa, y recién al confirmar lo manda a la Sheet.
 
-## Novedades de esta versión
+## Actualización importante — bug de "ganancia en cero" y nuevas mejoras
+
+Encontramos y corregimos la causa real del problema de ganancia: el código
+que agrega columnas nuevas a la hoja comparaba nombres sin normalizar
+mayúsculas/minúsculas, así que en cada visita **duplicaba** las columnas
+`costoTotal` y `gananciaTotal` en la hoja "Ventas", corriendo los datos de
+lugar. Ya está corregido, pero tenés que hacer una limpieza única en tu
+Google Sheet:
+
+1. Abrí tu Google Sheet → pestaña **Ventas**.
+2. Fijate si hay columnas repetidas con nombres parecidos (por ejemplo dos o
+   más columnas "costoTotal" o "gananciaTotal"). Si las hay, es justamente
+   este bug.
+3. Lo más simple: **borrá toda la pestaña "Ventas"** (clic derecho sobre la
+   solapa → Eliminar) — el código la vuelve a crear sola, limpia, la próxima
+   vez que se registre un pedido o entres a esa pestaña del panel. Vas a
+   perder el historial de pedidos de prueba, pero no afecta tus productos.
+
+### Qué más se corrigió y se agregó en esta vuelta
+
+- **Stock automático**: al confirmarse un pedido por WhatsApp, el stock se
+  descuenta al instante (evita que dos clientes "compren" lo último que
+  queda). Si después marcás ese pedido como Cancelado, el stock se devuelve
+  solo; si lo reabrís, se vuelve a descontar.
+- **Ocultar productos**: cada producto tiene un botón Visible/Oculto en la
+  tabla del panel. Un producto oculto desaparece de la tienda sin borrarlo
+  ni perder su historial de ventas.
+- **Sin stock, pero visible**: los productos sin stock ya no se mezclan
+  entre los demás — siempre se ordenan al final de la grilla (siguen
+  mostrándose, solo que no se pueden agregar al carrito, como pediste).
+- **Detalle del producto**: tocando la imagen, el nombre, o "Ver más" en
+  cualquier producto se abre una ficha ampliada con la descripción completa.
+- **Recalcular precios en masa**: en Configuración, un botón nuevo aplica el
+  margen actual a TODOS los productos con costo cargado de una sola vez —
+  ya no hace falta entrar producto por producto cuando cambiás el margen.
+- **Gastos del negocio** (el "regalo" 🎁): pestaña nueva para cargar gastos
+  operativos. El resumen de Ventas ahora muestra ganancia bruta, gastos,
+  **ganancia neta**, y el reparto neto entre vos y tu socio — no solo lo
+  vendido, sino lo que de verdad queda libre para repartir.
+
 
 - **Costo y margen automático**: en el panel, al cargar el *costo* de un
   producto, el *precio de venta* se sugiere solo (costo + margen configurado,

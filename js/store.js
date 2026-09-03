@@ -36,7 +36,19 @@
     toastHost: $("#toastHost"),
     shippingNote: $("#shippingNote"),
     year: $("#year"),
+
+    modalOverlay: $("#productModalOverlay"),
+    modal: $("#productModal"),
+    modalClose: $("#productModalClose"),
+    modalMedia: $("#productModalMedia"),
+    modalCategory: $("#productModalCategory"),
+    modalTitle: $("#productModalTitle"),
+    modalDesc: $("#productModalDesc"),
+    modalPrice: $("#productModalPrice"),
+    modalControl: $("#productModalControl"),
   };
+
+  let openModalProductId = null;
 
   // ---------- Utilidades ----------
   const money = (n) =>
@@ -99,7 +111,8 @@
   }
 
   function getFiltered() {
-    return allProducts.filter((p) => {
+    const filtered = allProducts.filter((p) => {
+      if (p.oculto) return false; // el administrador lo ocultó de la tienda
       const matchesCat =
         activeCategory === "Todos" || (p.categoria || "").toLowerCase() === activeCategory.toLowerCase();
       const matchesSearch =
@@ -107,6 +120,17 @@
         (p.descripcion || "").toLowerCase().includes(searchTerm);
       return matchesCat && matchesSearch;
     });
+
+    // Los productos sin stock se muestran igual (no se ocultan), pero
+    // siempre al final de la grilla en vez de mezclados entre los demás.
+    return filtered
+      .map((p, index) => ({ p, index }))
+      .sort((a, b) => {
+        const aOut = Number(a.p.stock) <= 0 ? 1 : 0;
+        const bOut = Number(b.p.stock) <= 0 ? 1 : 0;
+        return aOut - bOut || a.index - b.index;
+      })
+      .map((entry) => entry.p);
   }
 
   function cardControlHtml(p, qty, outOfStock) {
@@ -130,18 +154,21 @@
       ? `<img src="${escapeHtml(p.imagen)}" alt="${escapeHtml(p.nombre)}" loading="lazy" onerror="this.parentElement.classList.add('img-fallback')">`
       : "";
     const qty = Cart.getState().find((it) => String(it.id) === String(p.id))?.qty || 0;
+    const desc = p.descripcion || "";
+    const isLong = desc.length > 90;
 
     return `
       <article class="card ${outOfStock ? "is-out" : ""}" data-id="${p.id}">
-        <div class="card__media">
+        <button class="card__media card__media--btn" data-view="${p.id}" aria-label="Ver detalle de ${escapeHtml(p.nombre)}">
           ${img}
           ${p.destacado ? `<span class="badge badge--warp">Destacado</span>` : ""}
           ${outOfStock ? `<span class="badge badge--out">Sin stock</span>` : ""}
-        </div>
+        </button>
         <div class="card__body">
           <p class="card__category">${escapeHtml(p.categoria || "")}</p>
-          <h3 class="card__title">${escapeHtml(p.nombre)}</h3>
-          ${p.descripcion ? `<p class="card__desc">${escapeHtml(p.descripcion)}</p>` : ""}
+          <button class="card__title card__title--btn" data-view="${p.id}">${escapeHtml(p.nombre)}</button>
+          ${desc ? `<p class="card__desc">${escapeHtml(desc)}</p>` : ""}
+          ${isLong ? `<button class="card__more" data-view="${p.id}">Ver más</button>` : ""}
         </div>
         <div class="card__footer">
           <span class="card__price">${money(Number(p.precio) || 0)}</span>
@@ -193,6 +220,55 @@
       controlSlot.innerHTML = cardControlHtml(product, qty, outOfStock);
       bindCardControl(controlSlot);
     });
+
+    if (openModalProductId) {
+      const product = allProducts.find((p) => String(p.id) === String(openModalProductId));
+      if (product) {
+        const outOfStock = Number(product.stock) <= 0;
+        const qty = Cart.getState().find((it) => String(it.id) === String(product.id))?.qty || 0;
+        el.modalControl.innerHTML = cardControlHtml(product, qty, outOfStock);
+        bindCardControl(el.modalControl);
+      }
+    }
+  }
+
+  // ---------- Modal de detalle del producto ----------
+  function openProductModal(id) {
+    const p = allProducts.find((x) => String(x.id) === String(id));
+    if (!p) return;
+    openModalProductId = id;
+    const outOfStock = Number(p.stock) <= 0;
+    const qty = Cart.getState().find((it) => String(it.id) === String(p.id))?.qty || 0;
+
+    el.modalMedia.innerHTML = p.imagen
+      ? `<img src="${escapeHtml(p.imagen)}" alt="${escapeHtml(p.nombre)}">`
+      : `<div class="card__media img-fallback"></div>`;
+    if (p.destacado) el.modalMedia.insertAdjacentHTML("beforeend", `<span class="badge badge--warp">Destacado</span>`);
+    if (outOfStock) el.modalMedia.insertAdjacentHTML("beforeend", `<span class="badge badge--out">Sin stock</span>`);
+
+    el.modalCategory.textContent = p.categoria || "";
+    el.modalTitle.textContent = p.nombre;
+    el.modalDesc.textContent = p.descripcion || "Sin descripción adicional.";
+    el.modalPrice.textContent = money(Number(p.precio) || 0);
+    el.modalControl.innerHTML = cardControlHtml(p, qty, outOfStock);
+    bindCardControl(el.modalControl);
+
+    el.modalOverlay.classList.add("is-open");
+    el.modal.classList.add("is-open");
+    el.modal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeProductModal() {
+    openModalProductId = null;
+    el.modalOverlay.classList.remove("is-open");
+    el.modal.classList.remove("is-open");
+    el.modal.setAttribute("aria-hidden", "true");
+  }
+
+  function bindCardViewButtons(container) {
+    container.querySelectorAll("[data-view]").forEach((btn) => {
+      btn.addEventListener("click", () => openProductModal(btn.dataset.view));
+    });
   }
 
   function renderCatalog() {
@@ -217,6 +293,7 @@
 
     el.grid.innerHTML = filtered.map(productCard).join("");
     bindCardControl(el.grid);
+    bindCardViewButtons(el.grid);
   }
 
   function pulseCart() {
@@ -398,8 +475,13 @@
     el.cartClose.addEventListener("click", closeCart);
     el.cartOverlay.addEventListener("click", closeCart);
     el.checkoutBtn.addEventListener("click", checkout);
+    el.modalClose.addEventListener("click", closeProductModal);
+    el.modalOverlay.addEventListener("click", closeProductModal);
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeCart();
+      if (e.key === "Escape") {
+        closeCart();
+        closeProductModal();
+      }
     });
 
     Cart.onChange(() => {

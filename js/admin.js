@@ -72,9 +72,23 @@
     splitHint: $("#splitHint"),
     saveConfigBtn: $("#saveConfigBtn"),
     configMsg: $("#configMsg"),
+    recalcularBtn: $("#recalcularBtn"),
+    recalcularMsg: $("#recalcularMsg"),
+
+    gastoForm: $("#gastoForm"),
+    gConcepto: $("#g-concepto"),
+    gMonto: $("#g-monto"),
+    gCategoria: $("#g-categoria"),
+    saveGastoBtn: $("#saveGastoBtn"),
+    gastoMsg: $("#gastoMsg"),
+    gastosStats: $("#gastosStats"),
+    gastosTbody: $("#gastosTbody"),
+    gastosEmpty: $("#gastosEmpty"),
 
     toastHost: $("#toastHost"),
   };
+
+  let gastos = [];
 
   const money = (n) =>
     new Intl.NumberFormat(CONFIG.LOCALE, { style: "currency", currency: CONFIG.CURRENCY, maximumFractionDigits: 0 }).format(n);
@@ -141,7 +155,7 @@
         tab.classList.add("is-active");
         el.panels.forEach((p) => p.classList.add("is-hidden"));
         $(`#tab-${tab.dataset.tab}`).classList.remove("is-hidden");
-        if (tab.dataset.tab === "ventas" && !ventas.length) loadVentas();
+        if (tab.dataset.tab === "ventas" || tab.dataset.tab === "gastos") refreshFinancials();
       });
     });
   }
@@ -174,6 +188,7 @@
       );
       showMsg(el.configMsg, "Configuración guardada.", "success");
       renderTable(); // recalcula la columna "Margen" con el nuevo valor
+      if (ventas.length || gastos.length) renderVentasStats(); // el reparto también depende del split
     } catch (err) {
       showMsg(el.configMsg, err.message, "error");
     } finally {
@@ -230,7 +245,7 @@
         const stockClass = stock === 0 ? "stock-zero" : stock <= 5 ? "stock-low" : "";
         const margen = costo > 0 ? `${(((precio - costo) / costo) * 100).toFixed(0)}%` : "—";
         return `
-        <tr data-id="${p.id}">
+        <tr data-id="${p.id}" class="${p.oculto ? "row-hidden" : ""}">
           <td class="cell-name">${p.nombre}</td>
           <td>${p.categoria || "—"}</td>
           <td>${costo > 0 ? money(costo) : "—"}</td>
@@ -238,6 +253,11 @@
           <td>${margen}</td>
           <td class="${stockClass}">${stock}</td>
           <td>${p.destacado ? "Sí" : "—"}</td>
+          <td>
+            <button class="visibility-btn ${p.oculto ? "is-hidden-state" : ""}" data-toggle-visible="${p.id}">
+              ${p.oculto ? "Oculto" : "Visible"}
+            </button>
+          </td>
           <td>
             <div class="row-actions">
               <button class="edit-btn" data-edit="${p.id}">Editar</button>
@@ -254,6 +274,21 @@
     el.productsTbody.querySelectorAll("[data-delete]").forEach((b) =>
       b.addEventListener("click", () => deleteProduct(b.dataset.delete))
     );
+    el.productsTbody.querySelectorAll("[data-toggle-visible]").forEach((b) =>
+      b.addEventListener("click", () => toggleVisibility(b.dataset.toggleVisible))
+    );
+  }
+
+  async function toggleVisibility(id) {
+    try {
+      const result = await Api.send("toggle_visibilidad", { id }, getToken());
+      const p = products.find((x) => String(x.id) === String(id));
+      if (p) p.oculto = result.oculto;
+      renderTable();
+      toast(result.oculto ? "Producto ocultado de la tienda." : "Producto visible en la tienda.", "success");
+    } catch (err) {
+      toast(err.message, "error");
+    }
   }
 
   // ---------- Alta / edición ----------
@@ -462,24 +497,34 @@
   }
 
   // ---------- Ventas ----------
-  async function loadVentas() {
-    el.ventasTbody.innerHTML = `<tr><td colspan="6">Cargando…</td></tr>`;
+  async function refreshFinancials() {
+    await Promise.all([loadVentas(false), loadGastos(false)]);
+    renderVentasStats();
+    renderGastosStats();
+  }
+
+  async function loadVentas(renderAfter = true) {
+    if (renderAfter) el.ventasTbody.innerHTML = `<tr><td colspan="6">Cargando…</td></tr>`;
     try {
       ventas = await Api.send("ventas_listar", {}, getToken());
-      renderVentasStats();
-      renderVentasTable();
+      if (renderAfter) {
+        renderVentasStats();
+        renderVentasTable();
+      }
     } catch (err) {
       toast(err.message, "error");
-      el.ventasTbody.innerHTML = "";
+      if (renderAfter) el.ventasTbody.innerHTML = "";
     }
   }
 
   function renderVentasStats() {
     const confirmadas = ventas.filter((v) => v.estado === "Confirmado");
     const total = confirmadas.reduce((s, v) => s + v.total, 0);
-    const ganancia = confirmadas.reduce((s, v) => s + v.gananciatotal, 0);
-    const propio = ganancia * (adminConfig.splitPropio / 100);
-    const socio = ganancia - propio;
+    const gananciaBruta = confirmadas.reduce((s, v) => s + v.gananciatotal, 0);
+    const totalGastos = gastos.reduce((s, g) => s + (Number(g.monto) || 0), 0);
+    const gananciaNeta = gananciaBruta - totalGastos;
+    const propio = gananciaNeta * (adminConfig.splitPropio / 100);
+    const socio = gananciaNeta - propio;
     const pendientes = ventas.filter((v) => v.estado === "Pendiente").length;
 
     el.ventasStats.innerHTML = `
@@ -492,8 +537,16 @@
         <p class="stat-card__value">${money(total)}</p>
       </div>
       <div class="stat-card">
-        <p class="stat-card__label">Ganancia total</p>
-        <p class="stat-card__value">${money(ganancia)}</p>
+        <p class="stat-card__label">Ganancia bruta</p>
+        <p class="stat-card__value">${money(gananciaBruta)}</p>
+      </div>
+      <div class="stat-card ${totalGastos ? "stat-card--danger" : ""}">
+        <p class="stat-card__label">Gastos</p>
+        <p class="stat-card__value">${money(totalGastos)}</p>
+      </div>
+      <div class="stat-card stat-card--success">
+        <p class="stat-card__label">Ganancia neta</p>
+        <p class="stat-card__value">${money(gananciaNeta)}</p>
       </div>
       <div class="stat-card">
         <p class="stat-card__label">Tu parte (${adminConfig.splitPropio}%)</p>
@@ -544,6 +597,7 @@
       if (venta) venta.estado = estado;
       renderVentasStats();
       renderVentasTable();
+      loadProducts(); // el stock puede haberse restaurado/descontado según el nuevo estado
     } catch (err) {
       toast(err.message, "error");
     }
@@ -572,6 +626,102 @@
     a.download = `ventas_warp_market_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ---------- Gastos ----------
+  async function loadGastos(renderAfter = true) {
+    try {
+      gastos = await Api.send("gastos_listar", {}, getToken());
+      if (renderAfter) {
+        renderGastosStats();
+        renderGastosTable();
+      }
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  function renderGastosStats() {
+    const total = gastos.reduce((s, g) => s + (Number(g.monto) || 0), 0);
+    el.gastosStats.innerHTML = `
+      <div class="stat-card">
+        <p class="stat-card__label">Gastos registrados</p>
+        <p class="stat-card__value">${gastos.length}</p>
+      </div>
+      <div class="stat-card stat-card--danger">
+        <p class="stat-card__label">Total gastado</p>
+        <p class="stat-card__value">${money(total)}</p>
+      </div>`;
+  }
+
+  function renderGastosTable() {
+    el.gastosEmpty.classList.toggle("is-hidden", gastos.length > 0);
+    el.gastosTbody.innerHTML = gastos
+      .map((g) => {
+        const fecha = g.fecha ? new Date(g.fecha).toLocaleDateString(CONFIG.LOCALE) : "—";
+        return `
+        <tr data-id="${g.id}">
+          <td>${fecha}</td>
+          <td class="cell-name">${g.concepto || "—"}</td>
+          <td>${g.categoria || "General"}</td>
+          <td>${money(g.monto)}</td>
+          <td><div class="row-actions"><button class="delete-btn" data-delete-gasto="${g.id}">Eliminar</button></div></td>
+        </tr>`;
+      })
+      .join("");
+    el.gastosTbody.querySelectorAll("[data-delete-gasto]").forEach((b) =>
+      b.addEventListener("click", () => deleteGasto(b.dataset.deleteGasto))
+    );
+  }
+
+  async function handleGastoSubmit(e) {
+    e.preventDefault();
+    el.saveGastoBtn.disabled = true;
+    try {
+      await Api.send(
+        "gastos_crear",
+        { concepto: el.gConcepto.value.trim(), monto: Number(el.gMonto.value), categoria: el.gCategoria.value.trim() || "General" },
+        getToken()
+      );
+      showMsg(el.gastoMsg, "Gasto agregado.", "success");
+      el.gastoForm.reset();
+      await loadGastos();
+      renderVentasStats(); // el resumen de Ventas también depende de los gastos
+    } catch (err) {
+      showMsg(el.gastoMsg, err.message, "error");
+    } finally {
+      el.saveGastoBtn.disabled = false;
+    }
+  }
+
+  async function deleteGasto(id) {
+    if (!confirm("¿Eliminar este gasto?")) return;
+    try {
+      await Api.send("gastos_eliminar", { id }, getToken());
+      toast("Gasto eliminado.", "success");
+      await loadGastos();
+      renderVentasStats();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  // ---------- Recalcular precios masivo ----------
+  async function handleRecalcular() {
+    if (!confirm(`Esto va a actualizar el precio de venta de todos los productos con costo cargado, usando el margen actual (${adminConfig.margen}%). ¿Continuar?`)) return;
+    el.recalcularBtn.disabled = true;
+    el.recalcularBtn.textContent = "Recalculando…";
+    try {
+      const result = await Api.send("recalcular_precios", {}, getToken());
+      showMsg(el.recalcularMsg, `Se actualizaron ${result.actualizados} productos.`, "success");
+      toast("Precios recalculados.", "success");
+      loadProducts();
+    } catch (err) {
+      showMsg(el.recalcularMsg, err.message, "error");
+    } finally {
+      el.recalcularBtn.disabled = false;
+      el.recalcularBtn.textContent = "Recalcular todos los precios ahora";
+    }
   }
 
   // ---------- Init ----------
@@ -619,11 +769,14 @@
     el.confirmBulkBtn.addEventListener("click", confirmBulkImport);
 
     el.ventasFiltro.addEventListener("change", renderVentasTable);
-    el.refreshVentasBtn.addEventListener("click", loadVentas);
+    el.refreshVentasBtn.addEventListener("click", () => refreshFinancials().then(renderVentasTable));
     el.exportVentasBtn.addEventListener("click", exportVentasCsv);
+
+    el.gastoForm.addEventListener("submit", handleGastoSubmit);
 
     el.configForm.addEventListener("submit", handleConfigSubmit);
     el.cSplit.addEventListener("input", updateSplitHint);
+    el.recalcularBtn.addEventListener("click", handleRecalcular);
 
     // Si ya había una sesión activa (misma pestaña), entra directo.
     if (getToken()) enterPanel();

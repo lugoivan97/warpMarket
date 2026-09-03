@@ -95,6 +95,22 @@
 
   <div class="toast-host" id="toastHost" aria-live="assertive"></div>
 
+  <!-- Modal de detalle del producto -->
+  <div class="product-modal-overlay" id="productModalOverlay"></div>
+  <div class="product-modal" id="productModal" aria-hidden="true" role="dialog" aria-modal="true">
+    <button class="product-modal__close" id="productModalClose" aria-label="Cerrar">✕</button>
+    <div class="product-modal__media" id="productModalMedia"></div>
+    <div class="product-modal__body">
+      <p class="card__category" id="productModalCategory"></p>
+      <h2 class="product-modal__title" id="productModalTitle"></h2>
+      <p class="product-modal__desc" id="productModalDesc"></p>
+      <div class="product-modal__footer">
+        <span class="card__price" id="productModalPrice"></span>
+        <span class="card__control" id="productModalControl"></span>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js?v=4"></script>
   <script src="js/api.js?v=4"></script>
   <script src="js/cart.js?v=4"></script>

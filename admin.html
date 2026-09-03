@@ -44,6 +44,7 @@
         <button class="admin-tab" data-tab="nuevo">Agregar producto</button>
         <button class="admin-tab" data-tab="masivo">Carga masiva</button>
         <button class="admin-tab" data-tab="ventas">Ventas</button>
+        <button class="admin-tab" data-tab="gastos">Gastos</button>
         <button class="admin-tab" data-tab="config">Configuración</button>
       </nav>
     </header>
@@ -68,6 +69,7 @@
                 <th>Margen</th>
                 <th>Stock</th>
                 <th>Destacado</th>
+                <th>Visible</th>
                 <th></th>
               </tr>
             </thead>
@@ -214,6 +216,56 @@
         <p class="admin-empty is-hidden" id="ventasEmpty">Todavía no hay pedidos registrados.</p>
       </section>
 
+      <!-- TAB: gastos -->
+      <section class="admin-panel is-hidden" id="tab-gastos" data-tab-panel>
+        <h2>Gastos del negocio</h2>
+        <p class="hint">
+          Cargá acá los gastos operativos (delivery, empaques, gas, alquiler, lo que sea) para que el
+          resumen de ganancia neta y el reparto con tu socio los tengan en cuenta — no solo lo vendido,
+          sino lo que realmente queda libre.
+        </p>
+
+        <form class="product-form" id="gastoForm">
+          <div class="form-row">
+            <div class="field">
+              <label for="g-concepto">Concepto *</label>
+              <input id="g-concepto" placeholder="Ej: nafta reparto, bolsas, alquiler freezer" required />
+            </div>
+            <div class="field">
+              <label for="g-monto">Monto *</label>
+              <input id="g-monto" type="number" min="0" step="1" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="g-categoria">Categoría</label>
+            <input id="g-categoria" list="gastoCategorias" placeholder="General" />
+            <datalist id="gastoCategorias">
+              <option value="Insumos"></option>
+              <option value="Logística"></option>
+              <option value="Alquiler"></option>
+              <option value="Servicios"></option>
+              <option value="General"></option>
+            </datalist>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="saveGastoBtn">Agregar gasto</button>
+          </div>
+          <p class="form-msg is-hidden" id="gastoMsg"></p>
+        </form>
+
+        <div class="stats-row" id="gastosStats"></div>
+
+        <div class="table-wrap">
+          <table class="admin-table" id="gastosTable">
+            <thead>
+              <tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Monto</th><th></th></tr>
+            </thead>
+            <tbody id="gastosTbody"></tbody>
+          </table>
+        </div>
+        <p class="admin-empty is-hidden" id="gastosEmpty">Todavía no cargaste gastos.</p>
+      </section>
+
       <!-- TAB: configuración -->
       <section class="admin-panel is-hidden" id="tab-config" data-tab-panel>
         <h2>Configuración de precios y reparto</h2>
@@ -237,6 +289,17 @@
           </div>
           <p class="form-msg is-hidden" id="configMsg"></p>
         </form>
+
+        <div class="config-divider"></div>
+
+        <h2>Recalcular precios existentes</h2>
+        <p class="hint">
+          Si cambiás el margen de arriba y querés que se aplique a TODOS los productos que ya cargaste
+          (no solo a los nuevos), usá este botón. Actualiza el precio de venta de cada producto que tenga
+          costo cargado, con el margen actual. Los productos sin costo cargado no se tocan.
+        </p>
+        <button class="btn btn--ghost" id="recalcularBtn">Recalcular todos los precios ahora</button>
+        <p class="form-msg is-hidden" id="recalcularMsg"></p>
       </section>
 
     </main>
