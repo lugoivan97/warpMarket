@@ -24,6 +24,14 @@ const HEADERS_VENTAS = ["id", "fecha", "items", "itemsJson", "total", "costoTota
 const SHEET_GASTOS = "Gastos";
 const HEADERS_GASTOS = ["id", "fecha", "concepto", "monto", "categoria"];
 
+const SHEET_COMPRAS = "Compras";
+const HEADERS_COMPRAS = ["id", "fecha", "producto", "cantidad", "costoUnitario", "costoTotal", "proveedor", "notas"];
+
+const SHEET_HISTORIAL = "Historial";
+const HEADERS_HISTORIAL = ["fecha", "ventasTotal", "gananciaBruta", "gastosTotal", "gananciaNeta", "capitalInventario", "comprasTotal"];
+
+const LOW_STOCK_THRESHOLD = 5; // mismo umbral que usa el panel para marcar "stock bajo"
+
 const DEFAULT_MARGEN = 50; // % de ganancia sugerido por defecto
 const DEFAULT_SPLIT = 50; // % del reparto que corresponde al dueño de la cuenta (el resto es del socio)
 
@@ -116,6 +124,27 @@ function doPost(e) {
       case "gastos_eliminar":
         result = eliminarGasto_(payload);
         break;
+      case "compras_crear":
+        result = crearCompra_(payload);
+        break;
+      case "compras_listar":
+        result = listCompras_();
+        break;
+      case "compras_eliminar":
+        result = eliminarCompra_(payload);
+        break;
+      case "historial_listar":
+        result = listHistorial_();
+        break;
+      case "historial_generar_ahora":
+        result = generarSnapshot_();
+        break;
+      case "alertas_probar":
+        result = chequearStockBajoYAvisar_();
+        break;
+      case "alertas_listar":
+        result = listStockBajo_();
+        break;
       default:
         return jsonOut_({ ok: false, error: "Acción no reconocida." });
     }
@@ -184,6 +213,30 @@ function getGastosSheet_() {
     sheet.appendRow(HEADERS_GASTOS);
   } else {
     ensureHeaders_(sheet, HEADERS_GASTOS);
+  }
+  return sheet;
+}
+
+function getComprasSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_COMPRAS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_COMPRAS);
+    sheet.appendRow(HEADERS_COMPRAS);
+  } else {
+    ensureHeaders_(sheet, HEADERS_COMPRAS);
+  }
+  return sheet;
+}
+
+function getHistorialSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_HISTORIAL);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_HISTORIAL);
+    sheet.appendRow(HEADERS_HISTORIAL);
+  } else {
+    ensureHeaders_(sheet, HEADERS_HISTORIAL);
   }
   return sheet;
 }
@@ -585,4 +638,207 @@ function eliminarGasto_(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ================= Compras / reposición de mercadería =================
+// Registro separado de "Gastos": acá se asienta cada vez que se repone
+// stock, con costo unitario y proveedor. Es la base del capital histórico
+// invertido en mercadería (distinto del valor de inventario actual, que
+// solo mira lo que queda sin vender).
+
+function crearCompra_(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const producto = payload && payload.producto;
+    const cantidad = Number(payload && payload.cantidad);
+    const costoUnitario = Number(payload && payload.costoUnitario);
+    if (!producto || !String(producto).trim()) throw new Error("La compra necesita un producto/concepto.");
+    if (isNaN(cantidad) || cantidad <= 0) throw new Error("La cantidad no es válida.");
+    if (isNaN(costoUnitario) || costoUnitario < 0) throw new Error("El costo unitario no es válido.");
+
+    const costoTotal = cantidad * costoUnitario;
+    const sheet = getComprasSheet_();
+    const id = Utilities.getUuid();
+    sheet.appendRow([
+      id,
+      new Date(),
+      producto,
+      cantidad,
+      costoUnitario,
+      costoTotal,
+      (payload && payload.proveedor) || "",
+      (payload && payload.notas) || "",
+    ]);
+    return { id: id, costoTotal: costoTotal };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function listCompras_() {
+  const sheet = getComprasSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values[0].map((h) => String(h).trim().toLowerCase());
+  const idCol = headers.indexOf("id");
+  return values.slice(1)
+    .filter((row) => row[idCol] !== "")
+    .map((row) => {
+      const obj = {};
+      headers.forEach((h, i) => (obj[h] = row[i]));
+      obj.cantidad = Number(obj.cantidad) || 0;
+      obj.costounitario = Number(obj.costounitario) || 0;
+      obj.costototal = Number(obj.costototal) || 0;
+      obj.fecha = obj.fecha instanceof Date ? obj.fecha.toISOString() : obj.fecha;
+      return obj;
+    })
+    .reverse();
+}
+
+function eliminarCompra_(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const id = payload && payload.id;
+    if (!id) throw new Error("Falta el id de la compra.");
+    const sheet = getComprasSheet_();
+    const row = findRowById_(sheet, id);
+    if (row === -1) throw new Error("La compra no existe.");
+    sheet.deleteRow(row);
+    return { deleted: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ================= Historial semanal (snapshot automático) =================
+// Cada vez que corre (manual o por trigger), calcula los totales de los
+// últimos 7 días y los guarda como una fila nueva en "Historial". Con el
+// tiempo, esto arma una serie histórica real para ver tendencias — sin
+// tener que sumar todo a mano cada vez.
+
+function generarSnapshot_() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const desde = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const ventas = listVentas_().filter((v) => v.estado === "Confirmado" && new Date(v.fecha) >= desde);
+    const ventasTotal = ventas.reduce((s, v) => s + v.total, 0);
+    const gananciaBruta = ventas.reduce((s, v) => s + v.gananciatotal, 0);
+
+    const gastos = listGastos_().filter((g) => new Date(g.fecha) >= desde);
+    const gastosTotal = gastos.reduce((s, g) => s + g.monto, 0);
+
+    const compras = listCompras_().filter((c) => new Date(c.fecha) >= desde);
+    const comprasTotal = compras.reduce((s, c) => s + c.costototal, 0);
+
+    const productos = listProducts_();
+    const capitalInventario = productos.reduce((s, p) => s + p.costo * p.stock, 0);
+
+    const gananciaNeta = gananciaBruta - gastosTotal;
+
+    const sheet = getHistorialSheet_();
+    sheet.appendRow([new Date(), ventasTotal, gananciaBruta, gastosTotal, gananciaNeta, capitalInventario, comprasTotal]);
+
+    return {
+      fecha: new Date().toISOString(),
+      ventasTotal: ventasTotal,
+      gananciaBruta: gananciaBruta,
+      gastosTotal: gastosTotal,
+      gananciaNeta: gananciaNeta,
+      capitalInventario: capitalInventario,
+      comprasTotal: comprasTotal,
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function listHistorial_() {
+  const sheet = getHistorialSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values[0].map((h) => String(h).trim().toLowerCase());
+  return values.slice(1)
+    .filter((row) => row[0] !== "")
+    .map((row) => {
+      const obj = {};
+      headers.forEach((h, i) => (obj[h] = row[i]));
+      obj.fecha = obj.fecha instanceof Date ? obj.fecha.toISOString() : obj.fecha;
+      obj.ventastotal = Number(obj.ventastotal) || 0;
+      obj.gananciabruta = Number(obj.gananciabruta) || 0;
+      obj.gastostotal = Number(obj.gastostotal) || 0;
+      obj.ganancianeta = Number(obj.ganancianeta) || 0;
+      obj.capitalinventario = Number(obj.capitalinventario) || 0;
+      obj.comprastotal = Number(obj.comprastotal) || 0;
+      return obj;
+    });
+}
+
+/**
+ * Wrapper que ejecuta el trigger de tiempo semanal (Domingo a la noche).
+ * NO se llama desde el panel: la instala una vez el dueño del script,
+ * corriendo manualmente instalarTriggerSnapshotSemanal() en el editor.
+ */
+function generarSnapshotAutomatico() {
+  generarSnapshot_();
+}
+
+function instalarTriggerSnapshotSemanal() {
+  // Evita duplicar el trigger si ya estaba instalado.
+  ScriptApp.getProjectTriggers().forEach((t) => {
+    if (t.getHandlerFunction() === "generarSnapshotAutomatico") ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger("generarSnapshotAutomatico")
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SUNDAY)
+    .atHour(22)
+    .create();
+}
+
+// ================= Alerta de stock bajo (mail) =================
+
+function listStockBajo_() {
+  return listProducts_()
+    .filter((p) => !p.oculto && p.stock <= LOW_STOCK_THRESHOLD)
+    .map((p) => ({ nombre: p.nombre, stock: p.stock }));
+}
+
+function chequearStockBajoYAvisar_() {
+  const productos = listProducts_().filter((p) => !p.oculto && p.stock <= LOW_STOCK_THRESHOLD);
+  if (!productos.length) return { enviado: false, productos: [] };
+
+  const destinatario = Session.getEffectiveUser().getEmail();
+  const lista = productos
+    .map((p) => `- ${p.nombre}: quedan ${p.stock} unidad(es)${p.stock === 0 ? " (SIN STOCK)" : ""}`)
+    .join("\n");
+
+  MailApp.sendEmail({
+    to: destinatario,
+    subject: `⚠️ Warp Market — ${productos.length} producto(s) con stock bajo`,
+    body: `Estos productos están en o por debajo de ${LOW_STOCK_THRESHOLD} unidades:\n\n${lista}\n\nEntrá al panel para reponerlos.`,
+  });
+
+  return { enviado: true, productos: productos.map((p) => ({ nombre: p.nombre, stock: p.stock })) };
+}
+
+/**
+ * Wrapper del trigger diario. Igual que el snapshot semanal, se instala
+ * una sola vez corriendo instalarTriggerAlertaStock() manualmente.
+ */
+function alertaStockDiaria() {
+  chequearStockBajoYAvisar_();
+}
+
+function instalarTriggerAlertaStock() {
+  ScriptApp.getProjectTriggers().forEach((t) => {
+    if (t.getHandlerFunction() === "alertaStockDiaria") ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger("alertaStockDiaria")
+    .timeBased()
+    .everyDays(1)
+    .atHour(9)
+    .create();
 }

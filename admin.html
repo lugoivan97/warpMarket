@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=6" />
-  <link rel="stylesheet" href="css/admin.css?v=6" />
+  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/admin.css?v=5" />
 </head>
 <body class="admin-body">
 
@@ -45,6 +45,9 @@
         <button class="admin-tab" data-tab="masivo">Carga masiva</button>
         <button class="admin-tab" data-tab="ventas">Ventas</button>
         <button class="admin-tab" data-tab="gastos">Gastos</button>
+        <button class="admin-tab" data-tab="compras">Compras</button>
+        <button class="admin-tab" data-tab="historial">Historial</button>
+        <button class="admin-tab" data-tab="alertas">Alertas</button>
         <button class="admin-tab" data-tab="config">Configuración</button>
       </nav>
     </header>
@@ -266,6 +269,120 @@
         <p class="admin-empty is-hidden" id="gastosEmpty">Todavía no cargaste gastos.</p>
       </section>
 
+      <!-- TAB: compras / reposición -->
+      <section class="admin-panel is-hidden" id="tab-compras" data-tab-panel>
+        <h2>Compras y reposición de mercadería</h2>
+        <p class="hint">
+          Cargá acá cada vez que reponés stock: cuánto compraste, a qué costo y a qué proveedor. Es
+          distinto de "Gastos" (que son costos operativos) — esto es específicamente lo que invertiste
+          en mercadería, y queda como historial permanente aunque el producto ya se haya vendido.
+        </p>
+
+        <form class="product-form" id="compraForm">
+          <div class="form-row">
+            <div class="field">
+              <label for="co-producto">Producto / concepto *</label>
+              <input id="co-producto" placeholder="Ej: Milanesas de pollo x kg" required />
+            </div>
+            <div class="field">
+              <label for="co-proveedor">Proveedor</label>
+              <input id="co-proveedor" placeholder="Opcional" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="co-cantidad">Cantidad *</label>
+              <input id="co-cantidad" type="number" min="0" step="1" required />
+            </div>
+            <div class="field">
+              <label for="co-costo-unitario">Costo unitario *</label>
+              <input id="co-costo-unitario" type="number" min="0" step="1" required />
+            </div>
+          </div>
+          <p class="hint hint--tight" id="compraTotalHint"></p>
+          <div class="field">
+            <label for="co-notas">Notas</label>
+            <input id="co-notas" placeholder="Opcional" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary" id="saveCompraBtn">Agregar compra</button>
+          </div>
+          <p class="form-msg is-hidden" id="compraMsg"></p>
+        </form>
+
+        <div class="stats-row" id="comprasStats"></div>
+
+        <div class="table-wrap">
+          <table class="admin-table" id="comprasTable">
+            <thead>
+              <tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Total</th><th>Proveedor</th><th></th></tr>
+            </thead>
+            <tbody id="comprasTbody"></tbody>
+          </table>
+        </div>
+        <p class="admin-empty is-hidden" id="comprasEmpty">Todavía no registraste compras.</p>
+      </section>
+
+      <!-- TAB: historial -->
+      <section class="admin-panel is-hidden" id="tab-historial" data-tab-panel>
+        <h2>Historial semanal</h2>
+        <p class="hint">
+          Cada semana (automático, los domingos a la noche) o cuando lo generes a mano, queda una
+          "foto" de los últimos 7 días: ventas, ganancia, gastos, compras y capital en inventario. Con
+          el tiempo esto arma una serie real para ver tendencias, no solo el acumulado total.
+        </p>
+        <p class="hint hint--tight">
+          El snapshot automático semanal no se activa solo la primera vez — hay que instalarlo una vez
+          desde el editor de Apps Script corriendo la función <code>instalarTriggerSnapshotSemanal</code>
+          (ver README). Mientras tanto, podés generar uno a mano con el botón de abajo.
+        </p>
+
+        <div class="bulk-actions">
+          <button class="btn btn--ghost" id="generarSnapshotBtn">Generar snapshot ahora</button>
+        </div>
+        <p class="form-msg is-hidden" id="historialMsg"></p>
+
+        <div class="chart-wrap">
+          <canvas id="historialChart" height="90"></canvas>
+        </div>
+
+        <div class="table-wrap">
+          <table class="admin-table" id="historialTable">
+            <thead>
+              <tr><th>Fecha</th><th>Ventas</th><th>Ganancia bruta</th><th>Gastos</th><th>Ganancia neta</th><th>Capital en stock</th><th>Compras</th></tr>
+            </thead>
+            <tbody id="historialTbody"></tbody>
+          </table>
+        </div>
+        <p class="admin-empty is-hidden" id="historialEmpty">Todavía no hay snapshots generados.</p>
+      </section>
+
+      <!-- TAB: alertas -->
+      <section class="admin-panel is-hidden" id="tab-alertas" data-tab-panel>
+        <h2>Alertas de stock bajo</h2>
+        <p class="hint">
+          Si algún producto visible tiene 5 unidades o menos, se puede mandar un mail de aviso a la
+          cuenta de Google dueña del script, así no dependés de entrar al panel todos los días para
+          darte cuenta. El envío automático diario también hay que instalarlo una vez desde el editor
+          de Apps Script, corriendo <code>instalarTriggerAlertaStock</code> (ver README).
+        </p>
+
+        <div class="bulk-actions">
+          <button class="btn btn--ghost" id="probarAlertaBtn">Probar ahora (envía el mail si corresponde)</button>
+        </div>
+        <p class="form-msg is-hidden" id="alertasMsg"></p>
+
+        <div class="table-wrap">
+          <table class="admin-table" id="alertasTable">
+            <thead>
+              <tr><th>Producto</th><th>Stock</th></tr>
+            </thead>
+            <tbody id="alertasTbody"></tbody>
+          </table>
+        </div>
+        <p class="admin-empty is-hidden" id="alertasEmpty">Ningún producto está con stock bajo ahora mismo.</p>
+      </section>
+
       <!-- TAB: configuración -->
       <section class="admin-panel is-hidden" id="tab-config" data-tab-panel>
         <h2>Configuración de precios y reparto</h2>
@@ -307,8 +424,9 @@
 
   <div class="toast-host" id="toastHost" aria-live="assertive"></div>
 
-  <script src="js/config.js?v=6"></script>
-  <script src="js/api.js?v=6"></script>
-  <script src="js/admin.js?v=6"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/admin.js?v=5"></script>
 </body>
 </html>

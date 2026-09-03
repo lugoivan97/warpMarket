@@ -85,10 +85,37 @@
     gastosTbody: $("#gastosTbody"),
     gastosEmpty: $("#gastosEmpty"),
 
+    compraForm: $("#compraForm"),
+    coProducto: $("#co-producto"),
+    coProveedor: $("#co-proveedor"),
+    coCantidad: $("#co-cantidad"),
+    coCostoUnitario: $("#co-costo-unitario"),
+    compraTotalHint: $("#compraTotalHint"),
+    coNotas: $("#co-notas"),
+    saveCompraBtn: $("#saveCompraBtn"),
+    compraMsg: $("#compraMsg"),
+    comprasStats: $("#comprasStats"),
+    comprasTbody: $("#comprasTbody"),
+    comprasEmpty: $("#comprasEmpty"),
+
+    generarSnapshotBtn: $("#generarSnapshotBtn"),
+    historialMsg: $("#historialMsg"),
+    historialChart: $("#historialChart"),
+    historialTbody: $("#historialTbody"),
+    historialEmpty: $("#historialEmpty"),
+
+    probarAlertaBtn: $("#probarAlertaBtn"),
+    alertasMsg: $("#alertasMsg"),
+    alertasTbody: $("#alertasTbody"),
+    alertasEmpty: $("#alertasEmpty"),
+
     toastHost: $("#toastHost"),
   };
 
   let gastos = [];
+  let compras = [];
+  let historial = [];
+  let historialChartInstance = null;
 
   const money = (n) =>
     new Intl.NumberFormat(CONFIG.LOCALE, { style: "currency", currency: CONFIG.CURRENCY, maximumFractionDigits: 0 }).format(n);
@@ -156,6 +183,9 @@
         el.panels.forEach((p) => p.classList.add("is-hidden"));
         $(`#tab-${tab.dataset.tab}`).classList.remove("is-hidden");
         if (tab.dataset.tab === "ventas" || tab.dataset.tab === "gastos") refreshFinancials();
+        if (tab.dataset.tab === "compras") loadCompras();
+        if (tab.dataset.tab === "historial") loadHistorial();
+        if (tab.dataset.tab === "alertas") loadAlertas();
       });
     });
   }
@@ -706,6 +736,211 @@
     }
   }
 
+  // ---------- Compras / reposición ----------
+  function updateCompraTotalHint() {
+    const cantidad = Number(el.coCantidad.value) || 0;
+    const costoUnitario = Number(el.coCostoUnitario.value) || 0;
+    el.compraTotalHint.textContent = cantidad && costoUnitario
+      ? `Total de esta compra: ${money(cantidad * costoUnitario)}`
+      : "Completá cantidad y costo unitario para ver el total.";
+  }
+
+  async function loadCompras() {
+    try {
+      compras = await Api.send("compras_listar", {}, getToken());
+      renderComprasStats();
+      renderComprasTable();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  function renderComprasStats() {
+    const totalHistorico = compras.reduce((s, c) => s + c.costototal, 0);
+    const ultimos30 = compras
+      .filter((c) => c.fecha && new Date(c.fecha) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+      .reduce((s, c) => s + c.costototal, 0);
+    el.comprasStats.innerHTML = `
+      <div class="stat-card">
+        <p class="stat-card__label">Compras registradas</p>
+        <p class="stat-card__value">${compras.length}</p>
+      </div>
+      <div class="stat-card">
+        <p class="stat-card__label">Invertido últimos 30 días</p>
+        <p class="stat-card__value">${money(ultimos30)}</p>
+      </div>
+      <div class="stat-card stat-card--danger">
+        <p class="stat-card__label">Invertido histórico total</p>
+        <p class="stat-card__value">${money(totalHistorico)}</p>
+      </div>`;
+  }
+
+  function renderComprasTable() {
+    el.comprasEmpty.classList.toggle("is-hidden", compras.length > 0);
+    el.comprasTbody.innerHTML = compras
+      .map((c) => {
+        const fecha = c.fecha ? new Date(c.fecha).toLocaleDateString(CONFIG.LOCALE) : "—";
+        return `
+        <tr data-id="${c.id}">
+          <td>${fecha}</td>
+          <td class="cell-name">${c.producto || "—"}</td>
+          <td>${c.cantidad}</td>
+          <td>${money(c.costounitario)}</td>
+          <td>${money(c.costototal)}</td>
+          <td>${c.proveedor || "—"}</td>
+          <td><div class="row-actions"><button class="delete-btn" data-delete-compra="${c.id}">Eliminar</button></div></td>
+        </tr>`;
+      })
+      .join("");
+    el.comprasTbody.querySelectorAll("[data-delete-compra]").forEach((b) =>
+      b.addEventListener("click", () => deleteCompra(b.dataset.deleteCompra))
+    );
+  }
+
+  async function handleCompraSubmit(e) {
+    e.preventDefault();
+    el.saveCompraBtn.disabled = true;
+    try {
+      await Api.send(
+        "compras_crear",
+        {
+          producto: el.coProducto.value.trim(),
+          cantidad: Number(el.coCantidad.value),
+          costoUnitario: Number(el.coCostoUnitario.value),
+          proveedor: el.coProveedor.value.trim(),
+          notas: el.coNotas.value.trim(),
+        },
+        getToken()
+      );
+      showMsg(el.compraMsg, "Compra registrada.", "success");
+      el.compraForm.reset();
+      updateCompraTotalHint();
+      await loadCompras();
+    } catch (err) {
+      showMsg(el.compraMsg, err.message, "error");
+    } finally {
+      el.saveCompraBtn.disabled = false;
+    }
+  }
+
+  async function deleteCompra(id) {
+    if (!confirm("¿Eliminar este registro de compra?")) return;
+    try {
+      await Api.send("compras_eliminar", { id }, getToken());
+      toast("Compra eliminada.", "success");
+      await loadCompras();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  // ---------- Historial semanal ----------
+  async function loadHistorial() {
+    try {
+      historial = await Api.send("historial_listar", {}, getToken());
+      renderHistorialTable();
+      renderHistorialChart();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  function renderHistorialTable() {
+    el.historialEmpty.classList.toggle("is-hidden", historial.length > 0);
+    el.historialTbody.innerHTML = [...historial]
+      .reverse()
+      .map((h) => {
+        const fecha = h.fecha ? new Date(h.fecha).toLocaleDateString(CONFIG.LOCALE) : "—";
+        return `
+        <tr>
+          <td>${fecha}</td>
+          <td>${money(h.ventastotal)}</td>
+          <td>${money(h.gananciabruta)}</td>
+          <td>${money(h.gastostotal)}</td>
+          <td>${money(h.ganancianeta)}</td>
+          <td>${money(h.capitalinventario)}</td>
+          <td>${money(h.comprastotal)}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  function renderHistorialChart() {
+    if (typeof Chart === "undefined" || !el.historialChart) return;
+    const labels = historial.map((h) => (h.fecha ? new Date(h.fecha).toLocaleDateString(CONFIG.LOCALE) : "—"));
+    const ventasData = historial.map((h) => h.ventastotal);
+    const gananciaData = historial.map((h) => h.ganancianeta);
+
+    if (historialChartInstance) historialChartInstance.destroy();
+    historialChartInstance = new Chart(el.historialChart.getContext("2d"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          { label: "Ventas", data: ventasData, borderColor: "#3399cc", backgroundColor: "rgba(51,153,204,0.15)", tension: 0.25, fill: true },
+          { label: "Ganancia neta", data: gananciaData, borderColor: "#33cc99", backgroundColor: "rgba(51,204,153,0.15)", tension: 0.25, fill: true },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: "#8fa0b5", font: { family: "IBM Plex Mono" } } } },
+        scales: {
+          x: { ticks: { color: "#52637a" }, grid: { color: "#232d42" } },
+          y: { ticks: { color: "#52637a" }, grid: { color: "#232d42" } },
+        },
+      },
+    });
+  }
+
+  async function handleGenerarSnapshot() {
+    el.generarSnapshotBtn.disabled = true;
+    el.generarSnapshotBtn.textContent = "Generando…";
+    try {
+      await Api.send("historial_generar_ahora", {}, getToken());
+      showMsg(el.historialMsg, "Snapshot generado con los datos de los últimos 7 días.", "success");
+      await loadHistorial();
+    } catch (err) {
+      showMsg(el.historialMsg, err.message, "error");
+    } finally {
+      el.generarSnapshotBtn.disabled = false;
+      el.generarSnapshotBtn.textContent = "Generar snapshot ahora";
+    }
+  }
+
+  // ---------- Alertas de stock bajo ----------
+  async function loadAlertas() {
+    try {
+      const productos = await Api.send("alertas_listar", {}, getToken());
+      renderAlertasTable(productos);
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  function renderAlertasTable(productos) {
+    el.alertasEmpty.classList.toggle("is-hidden", productos.length > 0);
+    el.alertasTbody.innerHTML = productos
+      .map((p) => `<tr><td class="cell-name">${p.nombre}</td><td class="${p.stock === 0 ? "stock-zero" : "stock-low"}">${p.stock}</td></tr>`)
+      .join("");
+  }
+
+  async function handleProbarAlerta() {
+    el.probarAlertaBtn.disabled = true;
+    try {
+      const result = await Api.send("alertas_probar", {}, getToken());
+      renderAlertasTable(result.productos);
+      showMsg(
+        el.alertasMsg,
+        result.enviado ? `Mail enviado — ${result.productos.length} producto(s) con stock bajo.` : "No hay productos con stock bajo, no se envió nada.",
+        result.enviado ? "success" : "success"
+      );
+    } catch (err) {
+      showMsg(el.alertasMsg, err.message, "error");
+    } finally {
+      el.probarAlertaBtn.disabled = false;
+    }
+  }
+
   // ---------- Recalcular precios masivo ----------
   async function handleRecalcular() {
     if (!confirm(`Esto va a actualizar el precio de venta de todos los productos con costo cargado, usando el margen actual (${adminConfig.margen}%). ¿Continuar?`)) return;
@@ -773,6 +1008,13 @@
     el.exportVentasBtn.addEventListener("click", exportVentasCsv);
 
     el.gastoForm.addEventListener("submit", handleGastoSubmit);
+
+    el.compraForm.addEventListener("submit", handleCompraSubmit);
+    el.coCantidad.addEventListener("input", updateCompraTotalHint);
+    el.coCostoUnitario.addEventListener("input", updateCompraTotalHint);
+
+    el.generarSnapshotBtn.addEventListener("click", handleGenerarSnapshot);
+    el.probarAlertaBtn.addEventListener("click", handleProbarAlerta);
 
     el.configForm.addEventListener("submit", handleConfigSubmit);
     el.cSplit.addEventListener("input", updateSplitHint);
